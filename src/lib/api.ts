@@ -1,5 +1,6 @@
 import { normalizeAPOD, normalizeLibraryItem } from './nasa-cleaners';
 import { SpacePost } from './types';
+import { Story } from './types';
 
 const API_KEY = process.env.NEXT_PUBLIC_NASA_API_KEY;
 
@@ -23,4 +24,29 @@ export async function getFeedPosts(): Promise<SpacePost[]> {
   
   // Return the top 10 results
   return data.collection.items.slice(0, 10).map(normalizeLibraryItem);
+}
+
+// Helper: Get today's date in YYYY-MM-DD format
+const getToday = () => new Date().toISOString().split('T')[0];
+
+// 3. Fetch Asteroid Hazard (Stories)
+export async function getHazardStory(): Promise<Story> {
+  const today = getToday();
+  const res = await fetch(`https://api.nasa.gov/neo/rest/v1/feed?start_date=${today}&end_date=${today}&api_key=${API_KEY}`);
+  
+  if (!res.ok) throw new Error('Failed to fetch Asteroids');
+  const data = await res.json();
+
+  // Count how many are "Potentially Hazardous"
+  const asteroids = data.near_earth_objects[today] || [];
+  const hazardCount = asteroids.filter((a: any) => a.is_potentially_hazardous_asteroid).length;
+  const totalCount = asteroids.length;
+
+  return {
+    id: `asteroid-${today}`,
+    type: 'HAZARD',
+    thumbnailUrl: '/hazard-icon.png', // We will handle this later
+    statusColor: hazardCount > 0 ? 'red' : 'green',
+    text: `${totalCount} Near Earth Objects (${hazardCount} Hazardous)`
+  };
 }
