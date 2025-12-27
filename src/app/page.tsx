@@ -1,53 +1,34 @@
 import { getHeroPost, getFeedPosts, getHazardStory } from '@/lib/api';
-import { getPostLikes } from '@/lib/db';
-import { likePost } from './actions';
 
 export default async function Home() {
+  // We keep fetching the data, because we will need it soon!
   const hero = await getHeroPost();
   const feed = await getFeedPosts();
-  const testLikes = await getPostLikes('test-id');
-  
-  // NEW: Fetch the Hazard Story
   const hazard = await getHazardStory();
 
   return (
-    <div className="p-10 font-mono text-sm">
-      <h1 className="text-2xl font-bold mb-4">Backend Test Dashboard</h1>
-      
-      {/* NEW: Asteroid Radar Box */}
-      <div className={`p-4 border-l-4 mb-8 text-black ${hazard.statusColor === 'red' ? 'bg-red-100 border-red-500' : 'bg-green-100 border-green-500'}`}>
-        <h2 className="font-bold text-lg">Asteroid Radar (NeoWs)</h2>
-        <p className="text-xl">{hazard.text}</p>
-        <p className="text-xs mt-2 text-gray-600">Status: {hazard.statusColor.toUpperCase()}</p>
-      </div>
+    <main className="min-h-screen bg-black text-white">
+      {/* 1. Navbar (Coming soon) */}
+      <nav className="p-4 border-b border-gray-800">
+        <h1 className="text-xl font-bold tracking-tighter">ORBIT</h1>
+      </nav>
 
-      {/* ... keep your existing Database Test ... */}
-      <div className="bg-yellow-100 p-4 border-l-4 border-yellow-500 text-black mb-8">
-         <h2 className="font-bold text-lg">Database Connection Test</h2>
-         <p>Checking ID 'test-id': <strong>{testLikes} Likes</strong></p>
-         {/* NEW: The Like Button Form */}
-         <form action={async () => {
-           'use server';
-           await likePost('test-id');
-         }}>
-           <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
-             Add +1 Like
-           </button>
-         </form>
-      </div>
-      
-      {/* ... keep your existing Hero and Feed sections ... */}
-      <h2 className="text-xl text-blue-600 mt-8">1. Hero Post (APOD)</h2>
-      <pre className="bg-gray-100 text-black p-4 rounded overflow-auto h-64">
-        {JSON.stringify(hero, null, 2)}
-      </pre>
+      {/* 2. Hero Section */}
+      <section className="container mx-auto py-20 px-4">
+        <h1 className="text-6xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent">
+          Explore the Cosmos
+        </h1>
+        <p className="text-xl text-gray-400 max-w-2xl">
+          Daily deep space imagery from NASA's APOD and NeoWs APIs.
+        </p>
+      </section>
 
-      <h2 className="text-xl text-green-600 mt-8">2. Feed Posts (Library)</h2>
-      <pre className="bg-gray-100 text-black p-4 rounded overflow-auto h-96">
-        {JSON.stringify(feed, null, 2)}
-      </pre>
-    </div>
-
-    
+      {/* 3. Empty Grid for Feed */}
+      <section className="container mx-auto px-4 py-10">
+        <div className="p-10 border border-dashed border-gray-700 rounded-xl text-center text-gray-500">
+          Feed Components Will Go Here
+        </div>
+      </section>
+    </main>
   );
 }
