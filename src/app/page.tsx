@@ -1,5 +1,6 @@
 import { getHeroPost, getFeedPosts, getHazardStory } from '@/lib/api';
 import { getPostLikes } from '@/lib/db';
+import { likePost } from './actions';
 
 export default async function Home() {
   const hero = await getHeroPost();
@@ -24,6 +25,15 @@ export default async function Home() {
       <div className="bg-yellow-100 p-4 border-l-4 border-yellow-500 text-black mb-8">
          <h2 className="font-bold text-lg">Database Connection Test</h2>
          <p>Checking ID 'test-id': <strong>{testLikes} Likes</strong></p>
+         {/* NEW: The Like Button Form */}
+         <form action={async () => {
+           'use server';
+           await likePost('test-id');
+         }}>
+           <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+             Add +1 Like
+           </button>
+         </form>
       </div>
       
       {/* ... keep your existing Hero and Feed sections ... */}
@@ -37,5 +47,7 @@ export default async function Home() {
         {JSON.stringify(feed, null, 2)}
       </pre>
     </div>
+
+    
   );
 }
