@@ -9,6 +9,7 @@ export interface SpacePost {
   date: string;         // "2025-12-24"
   source: 'APOD' | 'NASA_LIB' | 'MARS'; // Where it came from
   likes: number;        // From your database
+  mediaType: 'image' | 'video';
 }
 
 // 2. The Story (What the top bar needs)
