@@ -1,15 +1,16 @@
 import { SpacePost } from './types';
 
 // 1. Clean APOD Data
-export function normalizeAPOD(rawJson: any): SpacePost {
+export function normalizeAPOD(data: any): SpacePost {
   return {
-    id: `apod-${rawJson.date}`,
-    title: rawJson.title,
-    description: rawJson.explanation,
-    imageUrl: rawJson.url, 
-    date: rawJson.date,
+    id: `apod-${data.date}`,
+    title: data.title,
+    description: data.explanation,
+    imageUrl: data.url, // For videos, this is the YouTube link
+    date: data.date,
     source: 'APOD',
-    likes: 0
+    likes: 0,
+    mediaType: data.media_type, // <--- ADD THIS LINE
   };
 }
 
@@ -25,6 +26,7 @@ export function normalizeLibraryItem(item: any): SpacePost {
     imageUrl: link || "/placeholder.jpg",
     date: data.date_created?.split('T')[0] || "Unknown Date",
     source: 'NASA_LIB',
-    likes: 0
+    likes: 0,
+    mediaType: data.media_type,
   };
 }

@@ -1,6 +1,5 @@
 import { normalizeAPOD, normalizeLibraryItem } from './nasa-cleaners';
-import { SpacePost } from './types';
-import { Story } from './types';
+import { SpacePost, Story } from './types';
 
 const API_KEY = process.env.NEXT_PUBLIC_NASA_API_KEY;
 
@@ -12,7 +11,7 @@ export async function getHeroPost(): Promise<SpacePost> {
   return normalizeAPOD(data);
 }
 
-// 2. Fetch Search Results (Feed)
+// 2. Fetch Random Feed (Old Implementation)
 export async function getFeedPosts(): Promise<SpacePost[]> {
   // Topic Roulette: Pick a random topic
   const topics = ['nebula', 'galaxy', 'black hole', 'mars surface', 'saturn'];
@@ -49,4 +48,16 @@ export async function getHazardStory(): Promise<Story> {
     statusColor: hazardCount > 0 ? 'red' : 'green',
     text: `${totalCount} Near Earth Objects (${hazardCount} Hazardous)`
   };
+}
+
+// 4. NEW: Fetch Searchable Library Feed (Images & Videos)
+export async function getLibraryItems(query: string = 'nebula'): Promise<SpacePost[]> {
+  // We ask for both images and videos
+  const res = await fetch(`https://images-api.nasa.gov/search?q=${query}&media_type=image,video`);
+  
+  if (!res.ok) throw new Error('Failed to fetch library items');
+  const data = await res.json();
+  
+  // We take the top 12 results and clean them up
+  return data.collection.items.slice(0, 12).map(normalizeLibraryItem);
 }
