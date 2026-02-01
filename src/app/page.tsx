@@ -1,6 +1,7 @@
 import { getHeroPost, getHazardStory, getLibraryItems } from '@/lib/api';
 import FeedGrid from '@/components/FeedGrid';
 import SearchBar from '@/components/SearchBar';
+import HeroSection from '@/components/HeroSection'; // <--- NEW IMPORT
 
 export default async function Home() {
   // 1. Fetch APOD (Hero)
@@ -9,9 +10,13 @@ export default async function Home() {
   // 2. Fetch Asteroid Data (Status)
   const hazard = await getHazardStory();
   
-  // 3. Fetch Library Feed (Images & Videos)
-  // You can change 'nebula' to 'black hole', 'mars', 'sun', etc.
-  const feed = await getLibraryItems('nebula');
+  // 3. Topic Roulette (Dynamic Feed)
+  // Instead of just 'nebula', it picks a random topic every time the page loads
+  const topics = ['nebula', 'black hole', 'mars rover', 'supernova', 'galaxy', 'astronaut', 'saturn'];
+  const randomTopic = topics[Math.floor(Math.random() * topics.length)];
+  
+  // Fetch Library Feed using the random topic
+  const feed = await getLibraryItems(randomTopic);
 
   return (
     <main className="min-h-screen bg-black text-white font-sans selection:bg-blue-500 selection:text-white">
@@ -24,9 +29,7 @@ export default async function Home() {
         
         {/* Right side container */}
         <div className="flex items-center gap-6">
-           
-           {/* ✅ 2. THIS WAS MISSING: Actually displaying the SearchBar */}
-           <SearchBar />
+           <SearchBar /> {/* Kept your Search Bar! */}
 
            {/* System Online Indicator */}
            <div className="flex items-center gap-2 hidden md:flex">
@@ -41,43 +44,9 @@ export default async function Home() {
 
       <div className="container mx-auto px-4 py-10 max-w-6xl">
         
-        {/* --- 1. Hero Section (APOD) --- */}
-        <section className="mb-16">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-gray-400 text-sm font-bold uppercase tracking-widest">
-              Astronomy Picture of the Day
-            </h2>
-            <span className="text-gray-600 text-xs font-mono">{hero.date}</span>
-          </div>
-          
-          <div className="relative group rounded-2xl overflow-hidden border border-gray-800 bg-gray-900 shadow-2xl shadow-blue-900/10">
-            {/* Logic: Handle Video vs Image */}
-            {hero.mediaType === 'video' ? (
-              <div className="aspect-video w-full">
-                <iframe 
-                  src={hero.imageUrl} 
-                  className="w-full h-full" 
-                  title="APOD Video"
-                  allowFullScreen
-                />
-              </div>
-            ) : (
-              <img 
-                src={hero.imageUrl} 
-                alt={hero.title}
-                className="w-full h-auto object-cover max-h-[700px] group-hover:scale-105 transition duration-700 ease-in-out"
-              />
-            )}
-            
-            {/* Overlay Text */}
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent p-8 pt-32">
-              <h1 className="text-3xl md:text-6xl font-bold mb-4">{hero.title}</h1>
-              <p className="text-gray-300 line-clamp-2 max-w-3xl text-sm md:text-lg">
-                {hero.description}
-              </p>
-            </div>
-          </div>
-        </section>
+        {/* --- 1. NEW: Interactive Hero Section (Click to Open) --- */}
+        {/* We replaced the big static HTML block with this component */}
+        <HeroSection hero={hero} />
 
         {/* --- 2. Status Dashboard (Asteroids) --- */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-20">
@@ -102,7 +71,7 @@ export default async function Home() {
             <p className="text-sm text-gray-500">Real-time data from NASA NeoWs API</p>
           </div>
 
-          {/* Card B: Project Info (Static Placeholder) */}
+          {/* Card B: Project Info */}
           <div className="p-8 rounded-2xl border border-gray-800 bg-gray-900/50 flex flex-col justify-center">
              <h3 className="text-gray-400 font-bold uppercase text-xs tracking-widest mb-2">Current Mission</h3>
              <p className="text-xl font-bold text-white mb-2">Exploring the Archives</p>
@@ -112,16 +81,16 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* --- 3. The Library Feed (Interactive Grid) --- */}
+        {/* --- 3. The Library Feed (Dynamic) --- */}
         <section>
           <div className="flex items-center gap-4 mb-8 pb-4 border-b border-gray-800">
              <h2 className="text-2xl font-bold">Deep Space Archives</h2>
-             <span className="bg-blue-900/30 text-blue-400 px-3 py-1 rounded-full text-xs font-mono border border-blue-900">
-                QUERY: NEBULA
+             {/* This badge now updates to show which topic was picked */}
+             <span className="bg-blue-900/30 text-blue-400 px-3 py-1 rounded-full text-xs font-mono border border-blue-900 uppercase">
+                QUERY: {randomTopic}
              </span>
           </div>
 
-          {/* This one line replaces all the old grid HTML */}
           <FeedGrid posts={feed} />
           
         </section>
