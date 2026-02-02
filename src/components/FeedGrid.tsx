@@ -4,12 +4,12 @@ import { useState } from 'react';
 import { SpacePost } from '@/lib/types';
 import { X, Download, Heart, Maximize2 } from 'lucide-react';
 import { likePost } from '@/app/actions'; 
+import { motion } from 'framer-motion'; // 1. Import Motion
 
-// ✅ UPDATE: Props now accept 'initialLikes' (a list of IDs)
 export default function FeedGrid({ posts, initialLikes = [] }: { posts: SpacePost[], initialLikes?: string[] }) {
   const [selectedPost, setSelectedPost] = useState<SpacePost | null>(null);
   
-  // ✅ UPDATE: Initialize the 'likedPosts' set with the data from the server
+  // Initialize the 'likedPosts' set with the data from the server
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set(initialLikes));
 
   const handleLike = async (id: string, e: React.MouseEvent) => {
@@ -34,10 +34,17 @@ export default function FeedGrid({ posts, initialLikes = [] }: { posts: SpacePos
     <>
       {/* --- The Grid Layout --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {posts.map((post) => (
-          <div 
+        {posts.map((post, index) => (
+          <motion.div 
             key={post.id} 
             onClick={() => setSelectedPost(post)}
+            
+            // --- 2. THE ANIMATION MAGIC ---
+            initial={{ opacity: 0, y: 20 }} // Start slightly invisible and lower
+            whileInView={{ opacity: 1, y: 0 }} // Float up and fade in
+            viewport={{ once: true, margin: "-50px" }} // Only animate once
+            transition={{ duration: 0.5, delay: index * 0.1 }} // Stagger effect
+            
             className="group flex flex-col bg-gray-900/30 border border-gray-800 rounded-2xl overflow-hidden hover:border-blue-500/50 hover:bg-gray-900 transition duration-300 cursor-pointer"
           >
             {/* Thumbnail */}
@@ -61,7 +68,7 @@ export default function FeedGrid({ posts, initialLikes = [] }: { posts: SpacePos
                 {post.description}
               </p>
             </div>
-          </div>
+          </motion.div>
         ))}
       </div>
 

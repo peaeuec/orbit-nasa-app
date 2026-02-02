@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation';
 
 export async function likePost(nasaId: string) {
   const supabase = await createClient()
@@ -31,4 +32,10 @@ export async function likePost(nasaId: string) {
 
   // 5. Refresh the page data
   revalidatePath('/explore')
+}
+
+export async function signOut() {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  return redirect('/');
 }

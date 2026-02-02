@@ -44,13 +44,13 @@ export async function getHazardStory(): Promise<Story> {
   return {
     id: `asteroid-${today}`,
     type: 'HAZARD',
-    thumbnailUrl: '/hazard-icon.png', // We will handle this later
+    thumbnailUrl: '/hazard-icon.png', 
     statusColor: hazardCount > 0 ? 'red' : 'green',
     text: `${totalCount} Near Earth Objects (${hazardCount} Hazardous)`
   };
 }
 
-// 4. NEW: Fetch Searchable Library Feed (Images & Videos)
+// 4. Fetch Searchable Library Feed (Images & Videos)
 export async function getLibraryItems(query: string = 'nebula'): Promise<SpacePost[]> {
   // We ask for both images and videos
   const res = await fetch(`https://images-api.nasa.gov/search?q=${query}&media_type=image,video`);
@@ -60,4 +60,25 @@ export async function getLibraryItems(query: string = 'nebula'): Promise<SpacePo
   
   // We take the top 12 results and clean them up
   return data.collection.items.slice(0, 12).map(normalizeLibraryItem);
+}
+
+// 5. NEW: Fetch Single Post by ID (For Profile Page)
+export async function getPostById(nasaId: string): Promise<SpacePost | null> {
+  try {
+    const res = await fetch(`https://images-api.nasa.gov/search?nasa_id=${nasaId}`);
+    
+    if (!res.ok) throw new Error(`Failed to fetch details for ${nasaId}`);
+    const data = await res.json();
+    
+    // The API returns a list, but we only want the first match
+    const items = data.collection?.items || [];
+    
+    if (items.length === 0) return null;
+
+    // Use your existing normalizer on the single item
+    return normalizeLibraryItem(items[0]);
+  } catch (error) {
+    console.error(`Error processing ID ${nasaId}:`, error);
+    return null;
+  }
 }

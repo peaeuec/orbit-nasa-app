@@ -1,14 +1,19 @@
 import { getHeroPost, getHazardStory } from '@/lib/api';
 import HeroSection from '@/components/HeroSection';
 import SearchBar from '@/components/SearchBar';
-import Link from 'next/link'; // Needed for the button
+import Link from 'next/link';
+import { createClient } from '@/utils/supabase/server';
+import UserBadge from '@/components/UserBadge'; // ✅ Import the new component
 
 export default async function Home() {
+  // 1. Check if the user is logged in
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // 2. Fetch API Data
   const hero = await getHeroPost();
   const hazard = await getHazardStory();
   
-  // NOTE: We REMOVED the feed fetching here. It lives in /explore now.
-
   return (
     <main className="min-h-screen bg-black text-white font-sans selection:bg-blue-500 selection:text-white">
       
@@ -17,15 +22,20 @@ export default async function Home() {
         <h1 className="text-2xl font-bold tracking-tighter bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
           ORBIT
         </h1>
+        
         <div className="flex items-center gap-6">
            <SearchBar />
-           <div className="flex items-center gap-2 hidden md:flex">
-              <span className="relative flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-              </span>
-              <span className="text-xs text-gray-500 font-mono">SYSTEM ONLINE</span>
-           </div>
+           
+           {/* Smart Auth Section */}
+           {user ? (
+             // ✅ If logged in, show the sliding UserBadge
+             <UserBadge user={user} />
+           ) : (
+             // If logged out, show the Login button
+             <Link href="/login" className="text-sm font-bold text-gray-400 hover:text-white transition uppercase tracking-widest border border-transparent hover:border-gray-700 px-4 py-2 rounded-full">
+               Login
+             </Link>
+           )}
         </div>
       </nav>
 
@@ -36,6 +46,7 @@ export default async function Home() {
 
         {/* 2. Status Dashboard */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-20">
+          
           {/* Asteroid Card */}
           <div className={`p-8 rounded-2xl border transition-all hover:scale-[1.02] ${
             hazard.statusColor === 'red' 
@@ -56,7 +67,7 @@ export default async function Home() {
             <p className="text-sm text-gray-500">Real-time data from NASA NeoWs API</p>
           </div>
 
-          {/* NEW: Explore Call to Action Card */}
+          {/* Explore Call to Action Card */}
           <div className="p-8 rounded-2xl border border-blue-900/50 bg-gradient-to-br from-blue-950/20 to-black flex flex-col justify-center text-center items-center">
              <h3 className="text-blue-400 font-bold uppercase text-xs tracking-widest mb-2">Restricted Access</h3>
              <p className="text-2xl font-bold text-white mb-4">Deep Space Archives</p>
