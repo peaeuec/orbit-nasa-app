@@ -1,13 +1,34 @@
-'use server'; // <--- This magic line allows the browser to call this function!
+'use server'
 
-import { incrementLike } from '@/lib/db';
-import { revalidatePath } from 'next/cache';
+import { createClient } from '@/utils/supabase/server'
+import { revalidatePath } from 'next/cache'
 
-export async function likePost(postId: string) {
-  // 1. Run the database logic we wrote earlier
-  await incrementLike(postId);
+export async function likePost(nasaId: string) {
+  const supabase = await createClient()
   
-  // 2. Tell Next.js to refresh the homepage immediately
-  // (So the user sees the number go up without hitting refresh)
-  revalidatePath('/');
+  // 1. Get current user
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return // If not logged in, stop.
+
+  // 2. Check if already liked
+  const { data: existingLike } = await supabase
+    .from('likes')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('nasa_id', nasaId)
+    .single()
+
+  if (existingLike) {
+    // 3. Unlike (Delete)
+    await supabase.from('likes').delete().eq('id', existingLike.id)
+  } else {
+    // 4. Like (Insert)
+    await supabase.from('likes').insert({ 
+      user_id: user.id, 
+      nasa_id: nasaId 
+    })
+  }
+
+  // 5. Refresh the page data
+  revalidatePath('/explore')
 }

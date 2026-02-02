@@ -1,19 +1,33 @@
-'use client'; // This directive makes it interactive!
+'use client'; 
 
 import { useState } from 'react';
 import { SpacePost } from '@/lib/types';
 import { X, Download, Heart, Maximize2 } from 'lucide-react';
 import { likePost } from '@/app/actions'; 
 
-export default function FeedGrid({ posts }: { posts: SpacePost[] }) {
+// ✅ UPDATE: Props now accept 'initialLikes' (a list of IDs)
+export default function FeedGrid({ posts, initialLikes = [] }: { posts: SpacePost[], initialLikes?: string[] }) {
   const [selectedPost, setSelectedPost] = useState<SpacePost | null>(null);
-  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
+  
+  // ✅ UPDATE: Initialize the 'likedPosts' set with the data from the server
+  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set(initialLikes));
 
-  // Handle the Like Button click
   const handleLike = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Stop the modal from opening when clicking heart
-    setLikedPosts(prev => new Set(prev).add(id)); // Optimistic UI update
-    await likePost(id); // Server Action
+    e.stopPropagation(); 
+    
+    // Optimistic Update (Update UI instantly)
+    setLikedPosts(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id); // Toggle Off
+      } else {
+        newSet.add(id); // Toggle On
+      }
+      return newSet;
+    });
+
+    // Send to Server
+    await likePost(id); 
   };
 
   return (
@@ -55,7 +69,6 @@ export default function FeedGrid({ posts }: { posts: SpacePost[] }) {
       {selectedPost && (
         <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4">
           
-          {/* Close Button (Top Right) */}
           <button 
             onClick={() => setSelectedPost(null)}
             className="absolute top-6 right-6 text-gray-400 hover:text-white p-2 hover:bg-gray-800 rounded-full transition"
@@ -65,7 +78,7 @@ export default function FeedGrid({ posts }: { posts: SpacePost[] }) {
 
           <div className="bg-gray-900 border border-gray-800 rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl">
             
-            {/* 1. The Image/Video (Left Side) */}
+            {/* Left Side: Image/Video */}
             <div className="md:w-2/3 bg-black flex items-center justify-center p-2 relative">
                {selectedPost.mediaType === 'video' ? (
                  <iframe src={selectedPost.imageUrl} className="w-full h-full aspect-video" allowFullScreen />
@@ -78,7 +91,7 @@ export default function FeedGrid({ posts }: { posts: SpacePost[] }) {
                )}
             </div>
 
-            {/* 2. The Details (Right Side) */}
+            {/* Right Side: Details */}
             <div className="md:w-1/3 p-8 flex flex-col border-l border-gray-800 bg-gray-900">
                <div className="mb-6">
                  <span className="text-blue-400 text-xs font-mono uppercase tracking-widest border border-blue-900 px-2 py-1 rounded">
@@ -96,7 +109,6 @@ export default function FeedGrid({ posts }: { posts: SpacePost[] }) {
 
                {/* Action Buttons */}
                <div className="flex gap-3 mt-auto pt-6 border-t border-gray-800">
-                 {/* Like Button */}
                  <button 
                     onClick={(e) => handleLike(selectedPost.id, e)}
                     className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold transition ${
@@ -109,7 +121,6 @@ export default function FeedGrid({ posts }: { posts: SpacePost[] }) {
                     {likedPosts.has(selectedPost.id) ? 'Liked' : 'Like'}
                  </button>
 
-                 {/* Download Button */}
                  <a 
                    href={selectedPost.imageUrl} 
                    target="_blank" 
