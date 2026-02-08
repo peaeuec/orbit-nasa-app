@@ -91,14 +91,34 @@ export async function getHazardStory(): Promise<Story> {
   };
 }
 
-// 4. Generic Search (For your Navbar Search Bar)
-export async function getLibraryItems(query: string): Promise<SpacePost[]> {
-  const res = await fetch(`https://images-api.nasa.gov/search?q=${query}&media_type=image,video`);
+// 4. Search (For your Navbar Search Bar)
+export async function searchLibraryItems(
+  query: string, 
+  page: number = 1, 
+  mediaTypes: string[] = ['image', 'video'] // Default to Image + Video
+): Promise<SpacePost[]> {
   
-  if (!res.ok) return [];
-  const data = await res.json();
-  const items = data.collection?.items || [];
+  // Join types (e.g., "image,video,audio")
+  const typeParam = mediaTypes.join(',');
   
-  const cleanItems: SpacePost[] = items.slice(0, 20).map(normalizeLibraryItem);
-  return cleanItems;
+  // We ask for 100 items per page (NASA's max)
+  const url = `https://images-api.nasa.gov/search?q=${query}&media_type=${typeParam}&page=${page}&page_size=100`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    
+    const data = await res.json();
+    const items = data.collection?.items || [];
+
+    // Normalize and Filter
+    return items
+      .map(normalizeLibraryItem)
+      // Filter out items that are missing essential media
+      .filter((item: SpacePost) => item.imageUrl && item.imageUrl !== '/placeholder.jpg');
+      
+  } catch (e) {
+    console.error("Search failed:", e);
+    return [];
+  }
 }

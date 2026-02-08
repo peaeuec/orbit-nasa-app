@@ -1,75 +1,83 @@
-import { redirect } from 'next/navigation';
+import { getExplorePageData } from '@/lib/explore';
+import FeedGrid from '@/components/FeedGrid'; 
 import { createClient } from '@/utils/supabase/server';
-import { getTrendingFeed, getPopularFeed } from '@/lib/api'; 
-import FeedGrid from '@/components/FeedGrid';
-import { Flame, Star } from 'lucide-react'; 
+import { PlayCircle } from 'lucide-react'; 
 
 export default async function ExplorePage() {
   const supabase = await createClient();
-  
-  // 1. Check Auth
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect('/login?message=You must be logged in to view the archives');
-  }
+  // 1. Fetch Data
+  const data = await getExplorePageData();
 
-  // 2. Fetch Feeds in Parallel (Fast!)
-  const [trending, popular] = await Promise.all([
-    getTrendingFeed(),
-    getPopularFeed()
-  ]);
-
-  // 3. Fetch User Likes (so hearts show red)
+  // 2. Fetch Likes
   const { data: likes } = await supabase
     .from('likes')
     .select('nasa_id')
-    .eq('user_id', user.id);
-
+    .eq('user_id', user?.id);
   const likedIds = likes?.map(l => l.nasa_id) || [];
-  const displayName = user.user_metadata?.username || user.email;
 
   return (
-    <main className="min-h-screen bg-black text-white p-8">
+    <main className="min-h-screen bg-black text-white pb-20 pt-10">
       
-      {/* Header */}
-      <div className="max-w-7xl mx-auto mb-12 border-b border-gray-800 pb-6">
-        <h1 className="text-3xl font-bold">Deep Space Archives</h1>
-        <p className="text-gray-400 text-sm mt-1">
-          Welcome back, <span className="text-blue-400 font-bold">{displayName}</span>
-        </p>
+      {/* Page Title (Since Hero is gone) */}
+      <div className="px-4 max-w-7xl mx-auto mb-8">
+        <h1 className="text-4xl font-bold">Deep Space Archives</h1>
+        <p className="text-gray-400 mt-2">Curated collections from the NASA database.</p>
       </div>
 
-      <div className="max-w-7xl mx-auto flex flex-col gap-16">
-        
-        {/* SECTION 1: TRENDING (Active Missions) */}
-        <section>
-           <div className="flex items-center gap-2 mb-6">
-              <Flame className="text-orange-500" />
-              <h2 className="text-2xl font-bold bg-linear-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">
-                Trending Missions
-              </h2>
-           </div>
-           {/* If api.ts returns empty, show a fallback message or empty grid */}
-           {trending.length > 0 ? (
-             <FeedGrid posts={trending} initialLikes={likedIds} />
-           ) : (
-             <p className="text-gray-500 text-sm">Loading mission data...</p>
-           )}
-        </section>
+      {/* --- DYNAMIC SECTIONS LOOP --- */}
+      <div className="flex flex-col gap-16 px-4 max-w-7xl mx-auto">
+        {data.sections.map((section) => {
+          // CRITICAL FIX: If no items, don't render the section at all
+          if (!section.items || section.items.length === 0) return null;
 
-        {/* SECTION 2: POPULAR (Greatest Hits) */}
-        <section>
-           <div className="flex items-center gap-2 mb-6">
-              <Star className="text-purple-500" />
-              <h2 className="text-2xl font-bold bg-linear-to-r from-purple-400 to-blue-500 bg-clip-text text-transparent">
-                Most Popular
-              </h2>
-           </div>
-           <FeedGrid posts={popular} initialLikes={likedIds} />
-        </section>
+          return (
+            <section key={section.id}>
+              
+              {/* Section Header */}
+              <div className="mb-6 border-l-4 border-blue-500 pl-4">
+                <h2 className="text-3xl font-bold">{section.title}</h2>
+                {section.subtitle && (
+                  <p className="text-gray-400 mt-1">{section.subtitle}</p>
+                )}
+              </div>
 
+              {/* --- LAYOUT SWITCHER --- */}
+              {section.layout === 'row' ? (
+                // ROW LAYOUT
+                <div className="flex gap-6 overflow-x-auto pb-6 snap-x scrollbar-hide">
+                  {section.items.map(item => (
+                    <div key={item.id} className="min-w-[280px] w-[280px] snap-center group cursor-pointer relative">
+                       <div className="aspect-[4/3] rounded-xl overflow-hidden bg-gray-900 border border-gray-800 mb-3 relative">
+                          <img 
+                            src={item.imageUrl} 
+                            className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                            alt={item.title} 
+                          />
+                          {item.mediaType === 'audio' && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                               <PlayCircle size={40} className="text-white opacity-80" />
+                            </div>
+                          )}
+                       </div>
+                       <h3 className="font-bold truncate group-hover:text-blue-400 transition">
+                         {item.title}
+                       </h3>
+                       <p className="text-xs text-gray-500">{item.date}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                // GRID LAYOUT
+                <FeedGrid posts={section.items} initialLikes={likedIds} />
+              )}
+            
+            </section>
+          );
+        })}
       </div>
+
     </main>
   );
 }

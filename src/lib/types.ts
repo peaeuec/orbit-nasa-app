@@ -1,22 +1,38 @@
 // src/lib/types.ts
 
-// 1. The Unified Post (What the Feed needs)
+// 1. The Unified Post (Existing)
 export interface SpacePost {
-  id: string;           // Unique ID (e.g., "apod-2023-10-01")
-  title: string;        // "Nebula of Orion"
-  description: string;  // "This nebula is..."
-  imageUrl: string;     // The actual image link
-  date: string;         // "2025-12-24"
-  source: 'APOD' | 'NASA_LIB' | 'MARS'; // Where it came from
-  likes: number;        // From your database
-  mediaType: 'image' | 'video';
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  date: string;
+  source: 'APOD' | 'NASA_LIB' | 'MARS';
+  likes: number;
+  mediaType: 'image' | 'video' | 'audio'; // Added 'audio' support
 }
 
-// 2. The Story (What the top bar needs)
+// 2. The Story (Existing)
 export interface Story {
   id: string;
   type: 'HAZARD' | 'EARTH' | 'WEATHER';
   thumbnailUrl: string;
   statusColor: 'green' | 'red' | 'blue';
-  text: string; // "2 Asteroids Approaching"
+  text: string;
+}
+
+// 3. NEW: Section Definitions
+export type SectionLayout = 'grid' | 'row' | 'featured';
+
+export interface ExploreSection {
+  id: string;
+  title: string;
+  subtitle?: string;
+  layout: SectionLayout;
+  items: SpacePost[];
+}
+
+export interface ExplorePageData {
+  hero: SpacePost;
+  sections: ExploreSection[];
 }
