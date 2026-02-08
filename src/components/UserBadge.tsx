@@ -30,15 +30,15 @@ export default function UserBadge({ user }: { user: User }) {
           />
         ) : (
           // If not, show the "Letter Avatar" with a gradient
-          <div className="w-full h-full bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center text-white font-bold text-sm">
+          <div className="w-full h-full bg-linear-to-br from-blue-600 to-purple-700 flex items-center justify-center text-white font-bold text-sm">
             {initial}
           </div>
         )}
       </div>
 
       {/* --- The Sliding Name --- */}
-      <div className="max-w-0 overflow-hidden group-hover:max-w-[150px] transition-all duration-500 ease-in-out">
-        <span className="pl-3 pr-4 text-sm font-bold text-gray-300 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">
+      <div className="max-w-0 overflow-hidden group-hover:max-w-[150px] transition-all duration-700 ease-in-out">
+        <span className="pl-3 pr-4 text-sm font-bold text-gray-50 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-400 delay-100">
           {username}
         </span>
       </div>

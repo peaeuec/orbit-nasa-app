@@ -12,7 +12,7 @@ export default function AuthForm({ message }: { message?: string }) {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <div className="w-full max-w-md backdrop-blur-xl border bg-transparent border-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+    <div className="w-full max-w-full backdrop-blur-xl border bg-transparent border-gray-800 rounded-2xl shadow-2xl overflow-hidden">
       
       {/* 1. The Tabs (Top Bar) */}
       <div className="flex border-b border-gray-800">

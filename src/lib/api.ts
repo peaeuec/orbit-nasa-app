@@ -3,82 +3,102 @@ import { SpacePost, Story } from './types';
 
 const API_KEY = process.env.NEXT_PUBLIC_NASA_API_KEY;
 
-// 1. Fetch APOD (Hero Image)
+// --- Helper: Shuffle Array ---
+function shuffleArray<T>(array: T[]): T[] {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+// 1. Trending Feed (Active Missions & News)
+export async function getTrendingFeed(): Promise<SpacePost[]> {
+  // SIMPLIFIED QUERY: We search for "James Webb" specifically to guarantee hits.
+  // Complex comma-separated queries sometimes fail with the date filter.
+  const query = 'James Webb Space Telescope'; 
+  
+  const res = await fetch(`https://images-api.nasa.gov/search?q=${query}&media_type=image,video&year_start=2023&page_size=25`);
+  
+  if (!res.ok) return [];
+  const data = await res.json();
+  const items = data.collection?.items || [];
+
+  // FIX: Explicitly tell TypeScript this is a list of SpacePost objects
+  const cleanItems: SpacePost[] = items.map(normalizeLibraryItem);
+
+  return cleanItems;
+}
+
+// 2. Popular Feed (The "Greatest Hits")
+export async function getPopularFeed(): Promise<SpacePost[]> {
+  const query = 'earth';
+  
+  // Fetch a larger pool (60 items) and shuffle
+  const res = await fetch(`https://images-api.nasa.gov/search?q=${query}&media_type=image&page_size=60`);
+  
+  if (!res.ok) return [];
+  const data = await res.json();
+  const items = data.collection?.items || [];
+  
+  // FIX: Explicitly tell TypeScript this is a list of SpacePost objects
+  const cleanItems: SpacePost[] = items.map(normalizeLibraryItem);
+  
+  // Now shuffle works because it knows what it is shuffling
+  return shuffleArray(cleanItems).slice(0, 24); 
+}
+
+// 3. Essential Helpers
 export async function getHeroPost(): Promise<SpacePost> {
   const res = await fetch(`https://api.nasa.gov/planetary/apod?api_key=${API_KEY}`);
   if (!res.ok) throw new Error('Failed to fetch APOD');
-  const data = await res.json();
-  return normalizeAPOD(data);
+  return normalizeAPOD(await res.json());
 }
 
-// 2. Fetch Random Feed (Old Implementation)
-export async function getFeedPosts(): Promise<SpacePost[]> {
-  // Topic Roulette: Pick a random topic
-  const topics = ['nebula', 'galaxy', 'black hole', 'mars surface', 'saturn'];
-  const randomTopic = topics[Math.floor(Math.random() * topics.length)];
-  
-  const res = await fetch(`https://images-api.nasa.gov/search?q=${randomTopic}&media_type=image`);
-  if (!res.ok) throw new Error('Failed to fetch Library');
-  const data = await res.json();
-  
-  // Return the top 10 results
-  return data.collection.items.slice(0, 10).map(normalizeLibraryItem);
-}
-
-// Helper: Get today's date in YYYY-MM-DD format
-const getToday = () => new Date().toISOString().split('T')[0];
-
-// 3. Fetch Asteroid Hazard (Stories)
-export async function getHazardStory(): Promise<Story> {
-  const today = getToday();
-  const res = await fetch(`https://api.nasa.gov/neo/rest/v1/feed?start_date=${today}&end_date=${today}&api_key=${API_KEY}`);
-  
-  if (!res.ok) throw new Error('Failed to fetch Asteroids');
-  const data = await res.json();
-
-  // Count how many are "Potentially Hazardous"
-  const asteroids = data.near_earth_objects[today] || [];
-  const hazardCount = asteroids.filter((a: any) => a.is_potentially_hazardous_asteroid).length;
-  const totalCount = asteroids.length;
-
-  return {
-    id: `asteroid-${today}`,
-    type: 'HAZARD',
-    thumbnailUrl: '/hazard-icon.png', 
-    statusColor: hazardCount > 0 ? 'red' : 'green',
-    text: `${totalCount} Near Earth Objects (${hazardCount} Hazardous)`
-  };
-}
-
-// 4. Fetch Searchable Library Feed (Images & Videos)
-export async function getLibraryItems(query: string = 'nebula'): Promise<SpacePost[]> {
-  // We ask for both images and videos
-  const res = await fetch(`https://images-api.nasa.gov/search?q=${query}&media_type=image,video`);
-  
-  if (!res.ok) throw new Error('Failed to fetch library items');
-  const data = await res.json();
-  
-  // We take the top 12 results and clean them up
-  return data.collection.items.slice(0, 12).map(normalizeLibraryItem);
-}
-
-// 5. NEW: Fetch Single Post by ID (For Profile Page)
 export async function getPostById(nasaId: string): Promise<SpacePost | null> {
   try {
     const res = await fetch(`https://images-api.nasa.gov/search?nasa_id=${nasaId}`);
-    
-    if (!res.ok) throw new Error(`Failed to fetch details for ${nasaId}`);
     const data = await res.json();
-    
-    // The API returns a list, but we only want the first match
     const items = data.collection?.items || [];
-    
-    if (items.length === 0) return null;
-
-    // Use your existing normalizer on the single item
-    return normalizeLibraryItem(items[0]);
-  } catch (error) {
-    console.error(`Error processing ID ${nasaId}:`, error);
+    // Only return if we found an item
+    if (items.length > 0) {
+      return normalizeLibraryItem(items[0]);
+    }
     return null;
+  } catch (e) { 
+    console.error(e);
+    return null; 
   }
+}
+
+export async function getHazardStory(): Promise<Story> {
+  const getToday = () => new Date().toISOString().split('T')[0];
+  const today = getToday();
+  const res = await fetch(`https://api.nasa.gov/neo/rest/v1/feed?start_date=${today}&end_date=${today}&api_key=${API_KEY}`);
+  
+  if (!res.ok) throw new Error('Failed');
+  
+  const data = await res.json();
+  const asteroids = data.near_earth_objects[today] || [];
+  const hazardCount = asteroids.filter((a: any) => a.is_potentially_hazardous_asteroid).length;
+  
+  return {
+    id: `asteroid-${today}`, 
+    type: 'HAZARD', 
+    thumbnailUrl: '/hazard-icon.png',
+    statusColor: hazardCount > 0 ? 'red' : 'green',
+    text: `${asteroids.length} Near Earth Objects (${hazardCount} Hazardous)`
+  };
+}
+
+// 4. Generic Search (For your Navbar Search Bar)
+export async function getLibraryItems(query: string): Promise<SpacePost[]> {
+  const res = await fetch(`https://images-api.nasa.gov/search?q=${query}&media_type=image,video`);
+  
+  if (!res.ok) return [];
+  const data = await res.json();
+  const items = data.collection?.items || [];
+  
+  const cleanItems: SpacePost[] = items.slice(0, 20).map(normalizeLibraryItem);
+  return cleanItems;
 }

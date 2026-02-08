@@ -19,7 +19,7 @@ export default async function Home() {
       
       {/* Navbar */}
       <nav className="border-b border-gray-800 p-6 flex flex-col md:flex-row justify-between items-center bg-black/50 backdrop-blur-md sticky top-0 z-50 gap-4">
-        <h1 className="text-2xl font-bold tracking-tighter bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+        <h1 className="text-2xl font-bold tracking-tighter bg-linear-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
           ORBIT
         </h1>
         
@@ -50,8 +50,8 @@ export default async function Home() {
           {/* Asteroid Card */}
           <div className={`p-8 rounded-2xl border transition-all hover:scale-[1.02] ${
             hazard.statusColor === 'red' 
-              ? 'border-red-900 bg-gradient-to-br from-red-950/30 to-black' 
-              : 'border-green-900 bg-gradient-to-br from-green-950/30 to-black'
+              ? 'border-red-900 bg-linear-to-br from-red-950/30 to-black' 
+              : 'border-green-900 bg-linear-to-br from-green-950/30 to-black'
           }`}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-bold text-xl flex items-center gap-3">
@@ -68,7 +68,7 @@ export default async function Home() {
           </div>
 
           {/* Explore Call to Action Card */}
-          <div className="p-8 rounded-2xl border border-blue-900/50 bg-gradient-to-br from-blue-950/20 to-black flex flex-col justify-center text-center items-center">
+          <div className="p-8 rounded-2xl border border-blue-900/50 bg-linear-to-br from-blue-950/20 to-black flex flex-col justify-center text-center items-center">
              <h3 className="text-blue-400 font-bold uppercase text-xs tracking-widest mb-2">Restricted Access</h3>
              <p className="text-2xl font-bold text-white mb-4">Deep Space Archives</p>
              <p className="text-gray-400 text-sm mb-6 max-w-xs">

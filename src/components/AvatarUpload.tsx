@@ -80,7 +80,7 @@ export default function AvatarUpload({
         {userUrl ? (
           <img src={userUrl} alt="Avatar" className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+          <div className="w-full h-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center">
             <User size={40} className="text-white" />
           </div>
         )}

@@ -18,7 +18,7 @@ export default async function SearchPage({ searchParams }: Props) {
     <main className="min-h-screen bg-black text-white font-sans">
       {/* --- Navbar --- */}
       <nav className="border-b border-gray-800 p-6 flex flex-col md:flex-row justify-between items-center bg-black/50 backdrop-blur-md sticky top-0 z-50 gap-4">
-        <a href="/" className="text-2xl font-bold tracking-tighter bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+        <a href="/" className="text-2xl font-bold tracking-tighter bg-linear-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
           ORBIT
         </a>
   

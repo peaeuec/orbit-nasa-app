@@ -35,7 +35,7 @@ export default async function ProfilePage() {
     <main className="min-h-screen bg-black text-white">
       
       {/* Profile Header */}
-      <div className="bg-gradient-to-b from-gray-900 to-black border-b border-gray-800 pb-12 pt-24 px-4">
+      <div className="bg-linear-to-b from-gray-900 to-black border-b border-gray-800 pb-12 pt-24 px-4">
         <div className="container mx-auto max-w-6xl flex flex-col md:flex-row items-center md:items-end justify-between gap-6">
           
           <div className="flex items-center gap-6">
