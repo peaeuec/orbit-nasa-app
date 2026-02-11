@@ -29,7 +29,7 @@ export default async function ExplorePage() {
       {/* --- DYNAMIC SECTIONS LOOP --- */}
       <div className="flex flex-col gap-16 px-4 max-w-7xl mx-auto">
         {data.sections.map((section) => {
-          // CRITICAL FIX: If no items, don't render the section at all
+          //If no items, don't render the section at all
           if (!section.items || section.items.length === 0) return null;
 
           return (
