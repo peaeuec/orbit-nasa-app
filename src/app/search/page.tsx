@@ -223,8 +223,16 @@ export default function SearchPage() {
              <div className="bg-gray-900 p-6 rounded-full mb-4 border border-gray-800">
                 <AlertCircle size={48} className="text-red-400 opacity-80" />
              </div>
-             <h2 className="text-2xl font-bold text-white mb-2">No Signal Detected</h2>
+             <h2 className="text-2xl font-bold text-white mb-2">Echo Failed</h2>
              <p className="mb-6">We couldn't find anything matching <span className="text-blue-400">"{query}"</span>.</p>
+             
+             <div className="bg-gray-900/50 p-6 rounded-xl border border-gray-800 max-w-md w-full">
+                <p className="text-sm font-bold text-gray-300 mb-3 uppercase tracking-wider">Search Tips:</p>
+                <ul className="list-disc list-inside space-y-2 text-sm">
+                   <li>Check your spelling.</li>
+                   <li>Try simplified terms (e.g., "Galaxy" instead of "Galaxies").</li>
+                </ul>
+             </div>
           </div>
         )}
 
