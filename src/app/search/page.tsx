@@ -127,7 +127,7 @@ export default function SearchPage() {
         setResults([]);
         setHasSearched(false);
       }
-    }, 500); 
+    }, 700); 
 
     return () => clearTimeout(timer); 
   }, [query, filters, userId]); // Added userId
@@ -192,7 +192,7 @@ export default function SearchPage() {
         {/* Loading */}
         {loading && results.length === 0 && (
            <div className="flex flex-col items-center justify-center py-20 text-gray-500 animate-pulse">
-              <Loader2 className="w-10 h-10 animate-spin text-blue-500 mb-4" />
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
               <p>Scanning the archives...</p>
            </div>
         )}
