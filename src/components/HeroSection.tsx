@@ -54,7 +54,7 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
           ) : (
              <div className="relative w-full">
                <img src={hero.imageUrl} alt={hero.title} className="w-full h-auto object-contain" />
-               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-90" />
+               <div className="absolute inset-0 bg-linear-to-t from-black via-black/40 to-transparent opacity-90" />
                <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition duration-500" />
              </div>
           )}

@@ -1,56 +1,54 @@
 import { normalizeLibraryItem } from './nasa-cleaners';
 import { SpacePost, ExploreSection, ExplorePageData } from './types';
+import { getBulkLikeCounts } from './db'; 
 
 const BASE_URL = 'https://images-api.nasa.gov/search';
 
 /* -------------------------------------------------------
-   SESSION + DAILY SEEDING
+   DETERMINISTIC RANDOM NUMBER GENERATOR (PRNG)
+   This ensures the "Random" picks stay the same for 24 hours.
 ------------------------------------------------------- */
 
-const SESSION_KEY = 'nasa_explore_seed';
-
-type LaneSeed = {
-  q: string;
-  page: number;
-  year_start?: number;
-  year_end?: number;
-};
-
-type ExploreSeed = {
-  date: string;
-  lanes: Record<string, LaneSeed>;
-};
-
-function getTodayKey() {
-  return new Date().toISOString().split('T')[0];
+// 1. Generate a numeric seed from today's date (e.g., 20231025)
+function getDailySeed(): number {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return parseInt(`${year}${month}${day}`);
 }
 
-function getExploreSeed(): ExploreSeed {
-  if (typeof window === 'undefined') {
-    return generateSeed();
-  }
+// 2. Simple Mulberry32 PRNG
+// Returns a function that generates numbers between 0 and 1
+function createSeededRandom(seed: number) {
+  return function() {
+    let t = seed += 0x6D2B79F5;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
-  const cached = sessionStorage.getItem(SESSION_KEY);
-  if (cached) {
-    const parsed: ExploreSeed = JSON.parse(cached);
-    if (parsed.date === getTodayKey()) return parsed;
-  }
+// 3. Global PRNG instance for this request
+const TODAY_SEED = getDailySeed();
+let rng = createSeededRandom(TODAY_SEED);
 
-  const fresh = generateSeed();
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify(fresh));
-  return fresh;
+// Helper to reset RNG (optional, but good for consistency across requests)
+function resetRng() {
+  rng = createSeededRandom(TODAY_SEED);
 }
 
 /* -------------------------------------------------------
-   RANDOM HELPERS
+   RANDOM HELPERS (Updated to use Seeding)
 ------------------------------------------------------- */
-
 function randomInt(min: number, max: number) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+  // Use our 'rng()' instead of Math.random()
+  return Math.floor(rng() * (max - min + 1)) + min;
 }
 
 function pickMultiple(arr: string[], count = 2): string {
-  const shuffled = [...arr].sort(() => 0.5 - Math.random());
+  // Deterministic shuffle
+  const shuffled = [...arr].sort(() => 0.5 - rng());
   return shuffled.slice(0, count).join(' ');
 }
 
@@ -58,14 +56,13 @@ function randomYearRange() {
   const start = randomInt(1996, 2018);
   return {
     year_start: start,
-    year_end: Math.min(start + randomInt(3, 8), 2024)
+    year_end: Math.min(start + randomInt(3, 8), 2026)
   };
 }
 
 /* -------------------------------------------------------
    SEARCH TERM POOLS
 ------------------------------------------------------- */
-
 const TERM_POOLS = {
   trending: [
     'James Webb Space Telescope',
@@ -95,10 +92,6 @@ const TERM_POOLS = {
   ]
 };
 
-/* -------------------------------------------------------
-   HARD FALLBACKS (GUARANTEED HITS)
-------------------------------------------------------- */
-
 const HARD_FALLBACKS: Record<keyof typeof TERM_POOLS, string> = {
   trending: 'James Webb Space Telescope',
   mars: 'Mars',
@@ -109,9 +102,11 @@ const HARD_FALLBACKS: Record<keyof typeof TERM_POOLS, string> = {
 /* -------------------------------------------------------
    SEED GENERATION
 ------------------------------------------------------- */
-
-function generateSeed(): ExploreSeed {
-  const lanes: ExploreSeed['lanes'] = {};
+function generateSeed() {
+  // Reset RNG at start of generation to ensure 100% consistent lane order
+  resetRng();
+  
+  const lanes: any = {};
 
   (Object.keys(TERM_POOLS) as Array<keyof typeof TERM_POOLS>).forEach(
     (laneId) => {
@@ -125,13 +120,12 @@ function generateSeed(): ExploreSeed {
     }
   );
 
-  return { date: getTodayKey(), lanes };
+  return { date: String(TODAY_SEED), lanes };
 }
 
 /* -------------------------------------------------------
    LOW-LEVEL FETCH
 ------------------------------------------------------- */
-
 async function tryFetch(
   params: Record<string, string>,
   limit: number
@@ -142,7 +136,11 @@ async function tryFetch(
   });
 
   try {
-    const res = await fetch(`${BASE_URL}?${urlParams.toString()}`);
+    // We still keep the cache tag, just in case
+    const res = await fetch(`${BASE_URL}?${urlParams.toString()}`, {
+      next: { revalidate: 3600 } // Cache for 1 hour is fine now
+    });
+
     if (!res.ok) return [];
 
     const data = await res.json();
@@ -158,14 +156,15 @@ async function tryFetch(
 }
 
 /* -------------------------------------------------------
-   BULLETPROOF LANE FETCHER
+   LANE FETCHER
 ------------------------------------------------------- */
-
 async function fetchLaneItems(
   laneId: keyof typeof TERM_POOLS,
   limit = 10
 ): Promise<SpacePost[]> {
-  const seed = getExploreSeed().lanes[laneId];
+  // Generate the deterministic seed
+  const seedData = generateSeed(); 
+  const seed = seedData.lanes[laneId];
 
   // 1️⃣ Seeded attempt
   let items = await tryFetch(
@@ -182,42 +181,14 @@ async function fetchLaneItems(
 
   // 2️⃣ Retry page 1
   items = await tryFetch(
-    {
-      q: seed.q,
-      media_type: 'image',
-      page: '1'
-    },
+    { q: seed.q, media_type: 'image', page: '1' },
     limit
   );
   if (items.length) return items;
 
-  // 3️⃣ Retry without years
-  items = await tryFetch(
-    {
-      q: seed.q,
-      media_type: 'image'
-    },
-    limit
-  );
-  if (items.length) return items;
-
-  // 4️⃣ Retry alternate term
-  const altQuery = pickMultiple(TERM_POOLS[laneId], 1);
-  items = await tryFetch(
-    {
-      q: altQuery,
-      media_type: 'image'
-    },
-    limit
-  );
-  if (items.length) return items;
-
-  // 5️⃣ HARD FALLBACK (almost never fails)
+  // 3️⃣ Hard Fallback
   return await tryFetch(
-    {
-      q: HARD_FALLBACKS[laneId],
-      media_type: 'image'
-    },
+    { q: HARD_FALLBACKS[laneId], media_type: 'image' },
     limit
   );
 }
@@ -225,7 +196,6 @@ async function fetchLaneItems(
 /* -------------------------------------------------------
    LANE BUILDERS
 ------------------------------------------------------- */
-
 async function getTrendingLane(): Promise<ExploreSection> {
   const items = await fetchLaneItems('trending', 10);
   return {
@@ -273,7 +243,6 @@ async function getClassicsLane(): Promise<ExploreSection> {
 /* -------------------------------------------------------
    MAIN AGGREGATOR
 ------------------------------------------------------- */
-
 export async function getExplorePageData(): Promise<ExplorePageData> {
   const [trending, mars, earth, classics] = await Promise.all([
     getTrendingLane(),
@@ -281,6 +250,28 @@ export async function getExplorePageData(): Promise<ExplorePageData> {
     getEarthLane(),
     getClassicsLane()
   ]);
+
+  const allItems = [
+    ...trending.items,
+    ...mars.items,
+    ...earth.items,
+    ...classics.items
+  ];
+  const allIds = allItems.map(item => item.id);
+
+  const likeCounts = await getBulkLikeCounts(allIds);
+
+  const enrich = (section: ExploreSection) => {
+    section.items = section.items.map(item => ({
+      ...item,
+      likes: likeCounts[item.id] || 0
+    }));
+  };
+
+  enrich(trending);
+  enrich(mars);
+  enrich(earth);
+  enrich(classics);
 
   return {
     hero: trending.items[0] || mars.items[0],

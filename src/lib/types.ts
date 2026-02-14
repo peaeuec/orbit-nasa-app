@@ -8,8 +8,8 @@ export interface SpacePost {
   imageUrl: string;
   date: string;
   source: 'APOD' | 'NASA_LIB' | 'MARS';
-  likes: number;
-  mediaType: 'image' | 'video' | 'audio'; // Added 'audio' support
+  mediaType: 'image' | 'video' | 'audio';
+  likes: number; // Ensure this exists for public counts
 }
 
 // 2. The Story (Existing)

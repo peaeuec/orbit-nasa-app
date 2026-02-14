@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { SpacePost } from '@/lib/types';
-import { X, Download, Heart, Maximize2, PlayCircle, Loader2 } from 'lucide-react';
+import { X, Download, Heart, Maximize2, PlayCircle, Loader2, LogIn } from 'lucide-react';
 import { likePost } from '@/app/actions'; 
-import { motion } from 'framer-motion'; 
+import { motion, AnimatePresence } from 'framer-motion'; 
 import Masonry from 'react-masonry-css';
+import Link from 'next/link';
 
 const breakpointColumnsObj = {
   default: 4,
@@ -14,17 +15,32 @@ const breakpointColumnsObj = {
   500: 1
 };
 
-export default function FeedGrid({ posts, initialLikes = [] }: { posts: SpacePost[], initialLikes?: string[] }) {
+interface FeedGridProps {
+  posts: SpacePost[];
+  initialLikes?: string[];
+  userId?: string; // NEW: Passed from parent to check auth
+}
+
+export default function FeedGrid({ posts, initialLikes = [], userId }: FeedGridProps) {
   const [selectedPost, setSelectedPost] = useState<SpacePost | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [loadingVideo, setLoadingVideo] = useState(false);
+  
+  // Track which posts the user has liked locally
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set(initialLikes));
+  
+  // Track local like count changes (optimistic updates)
+  // Maps postId -> delta (e.g., +1 or -1)
+  const [likeDeltas, setLikeDeltas] = useState<Record<string, number>>({});
 
-  // --- 1. NUCLEAR SCROLL LOCK ---
+  // Auth Modal State
+  const [showLogin, setShowLogin] = useState(false);
+
+  // --- SCROLL LOCKING ---
   useEffect(() => {
-    if (selectedPost) {
-      document.documentElement.style.overflow = 'hidden'; // Lock HTML
-      document.body.style.overflow = 'hidden';            // Lock Body
+    if (selectedPost || showLogin) {
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
     } else {
       document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
@@ -33,7 +49,7 @@ export default function FeedGrid({ posts, initialLikes = [] }: { posts: SpacePos
       document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
     };
-  }, [selectedPost]);
+  }, [selectedPost, showLogin]);
 
   // Video Fetch Logic
   useEffect(() => {
@@ -58,13 +74,37 @@ export default function FeedGrid({ posts, initialLikes = [] }: { posts: SpacePos
 
   const handleLike = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation(); 
+
+    // 1. AUTH CHECK
+    if (!userId) {
+      setShowLogin(true);
+      return;
+    }
+
+    // 2. OPTIMISTIC UPDATE
+    const isLiked = likedPosts.has(id);
+    
     setLikedPosts(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(id)) newSet.delete(id);
+      if (isLiked) newSet.delete(id);
       else newSet.add(id);
       return newSet;
     });
+
+    setLikeDeltas(prev => ({
+      ...prev,
+      [id]: (prev[id] || 0) + (isLiked ? -1 : 1)
+    }));
+
+    // 3. SERVER ACTION
     await likePost(id); 
+  };
+
+  // Helper to calculate display likes
+  const getDisplayLikes = (post: SpacePost) => {
+    const delta = likeDeltas[post.id] || 0;
+    const baseCount = post.likes || 0;
+    return Math.max(0, post.likes + delta);
   };
 
   return (
@@ -97,10 +137,13 @@ export default function FeedGrid({ posts, initialLikes = [] }: { posts: SpacePos
                      <PlayCircle className="w-12 h-12 text-white drop-shadow-lg opacity-80 group-hover:scale-110 transition" />
                   </div>
                 )}
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center z-10">
-                   <Maximize2 className="text-white w-8 h-8" />
+                {/* LIKE BADGE ON CARD */}
+                <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2 py-1 rounded-full flex items-center gap-1">
+                  <Heart size={12} className={likedPosts.has(post.id) ? "fill-pink-500 text-pink-500" : "text-white"} />
+                  <span className="text-xs font-bold text-white">{getDisplayLikes(post)}</span>
                 </div>
               </div>
+
               <div className="p-5">
                 <h3 className="font-bold text-lg leading-tight group-hover:text-blue-400 transition mb-2">
                   {post.title}
@@ -114,11 +157,50 @@ export default function FeedGrid({ posts, initialLikes = [] }: { posts: SpacePos
         ))}
       </Masonry>
 
-      {/* FULL SCREEN MODAL */}
+      {/* --- LOGIN MODAL --- */}
+      <AnimatePresence>
+        {showLogin && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setShowLogin(false)}
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-gray-900 border border-gray-800 p-8 rounded-2xl max-w-sm w-full text-center shadow-2xl relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button 
+                onClick={() => setShowLogin(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-white"
+              >
+                <X size={24} />
+              </button>
+              
+              <div className="w-16 h-16 bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6 text-blue-400">
+                <LogIn size={32} />
+              </div>
+              
+              <h2 className="text-2xl font-bold mb-2">Join the Mission</h2>
+              <p className="text-gray-400 mb-8">
+                Log in to curate your own collection, save favorites, and track your exploration stats.
+              </p>
+
+              <Link 
+                href="/login" 
+                className="block w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-full transition"
+              >
+                Log In to Continue
+              </Link>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* --- FULL SCREEN POST MODAL --- */}
       {selectedPost && (
         <div 
           className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4"
-          // --- 2. STOP PROPAGATION (Prevents scroll reaching body) ---
           onWheel={(e) => e.stopPropagation()} 
         >
           <button 
@@ -153,15 +235,30 @@ export default function FeedGrid({ posts, initialLikes = [] }: { posts: SpacePos
                  </span>
                </div>
                <h2 className="text-2xl font-bold mb-4 leading-tight">{selectedPost.title}</h2>
-               <div className="flex-1 overflow-y-auto pr-2 mb-6 custom-scrollbar" data-lenis-prevent>
+               
+               <div className="flex-1 overflow-y-auto pr-2 mb-6 custom-scrollbar">
                  <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-line">
                    {selectedPost.description}
                  </p>
                </div>
+
+               {/* MODAL ACTIONS */}
                <div className="flex gap-3 mt-auto pt-6 border-t border-gray-800">
-                 <button onClick={(e) => handleLike(selectedPost.id, e)} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold transition ${likedPosts.has(selectedPost.id) ? 'bg-pink-600 text-white' : 'bg-gray-800 hover:bg-gray-700 text-white'}`}>
+                 <button 
+                   onClick={(e) => handleLike(selectedPost.id, e)} 
+                   className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold transition ${
+                     likedPosts.has(selectedPost.id) 
+                     ? 'bg-pink-600 text-white' 
+                     : 'bg-gray-800 hover:bg-gray-700 text-white'
+                   }`}
+                 >
                     <Heart size={20} fill={likedPosts.has(selectedPost.id) ? "currentColor" : "none"} />
-                    {likedPosts.has(selectedPost.id) ? 'Liked' : 'Like'}
+                    <span className="flex items-center gap-1">
+                      {likedPosts.has(selectedPost.id) ? 'Liked' : 'Like'} 
+                      <span className="bg-black/20 px-2 py-0.5 rounded text-xs ml-1 opacity-70">
+                        {getDisplayLikes(selectedPost)}
+                      </span>
+                    </span>
                  </button>
                  <a href={videoUrl || selectedPost.imageUrl} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold transition">
                     <Download size={20} />

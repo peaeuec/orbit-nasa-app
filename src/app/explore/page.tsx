@@ -20,7 +20,7 @@ export default async function ExplorePage() {
   return (
     <main className="min-h-screen bg-black text-white pb-20 pt-10">
       
-      {/* Page Title (Since Hero is gone) */}
+      {/* Page Title */}
       <div className="px-4 max-w-7xl mx-auto mb-8">
         <h1 className="text-4xl font-bold">Deep Space Archives</h1>
         <p className="text-gray-400 mt-2">Curated collections from the NASA database.</p>
@@ -29,7 +29,7 @@ export default async function ExplorePage() {
       {/* --- DYNAMIC SECTIONS LOOP --- */}
       <div className="flex flex-col gap-16 px-4 max-w-7xl mx-auto">
         {data.sections.map((section) => {
-          //If no items, don't render the section at all
+          // If no items, don't render the section at all
           if (!section.items || section.items.length === 0) return null;
 
           return (
@@ -45,7 +45,7 @@ export default async function ExplorePage() {
 
               {/* --- LAYOUT SWITCHER --- */}
               {section.layout === 'row' ? (
-                // ROW LAYOUT
+                // ROW LAYOUT (Horizontal Scroll)
                 <div className="flex gap-6 overflow-x-auto pb-6 snap-x scrollbar-hide">
                   {section.items.map(item => (
                     <div key={item.id} className="min-w-[280px] w-[280px] snap-center group cursor-pointer relative">
@@ -55,7 +55,7 @@ export default async function ExplorePage() {
                             className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                             alt={item.title} 
                           />
-                          {item.mediaType === 'audio' && (
+                          {item.mediaType === 'video' && (
                             <div className="absolute inset-0 flex items-center justify-center bg-black/40">
                                <PlayCircle size={40} className="text-white opacity-80" />
                             </div>
@@ -70,7 +70,11 @@ export default async function ExplorePage() {
                 </div>
               ) : (
                 // GRID LAYOUT
-                <FeedGrid posts={section.items} initialLikes={likedIds} />
+                <FeedGrid 
+                  posts={section.items} 
+                  initialLikes={likedIds} 
+                  userId={user?.id} // <--- CRITICAL UPDATE: Pass User ID here
+                />
               )}
             
             </section>
