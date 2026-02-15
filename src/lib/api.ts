@@ -82,10 +82,11 @@ export async function getPostById(nasaId: string): Promise<SpacePost | null> {
 export async function getHazardStory() {
   const getToday = () => new Date().toISOString().split("T")[0];
   const today = getToday();
+  const API_KEY = process.env.NEXT_PUBLIC_NASA_API_KEY || "DEMO_KEY";
   const res = await fetch(
     `https://api.nasa.gov/neo/rest/v1/feed?start_date=${today}&end_date=${today}&api_key=${API_KEY}`,
     {
-      next: { revalidate: 3600 }, // Cache for 1 hour
+      next: { revalidate: 3600 },
     },
   );
 
@@ -94,27 +95,26 @@ export async function getHazardStory() {
   const data = await res.json();
   const rawAsteroids = data.near_earth_objects[today] || [];
 
-  // 1. Map detailed data for our Threat Board
   const asteroids = rawAsteroids
     .map((a: any) => ({
       id: a.id,
-      name: a.name.replace(/[()]/g, "").trim(), // Cleans "(2024 AB)" to "2024 AB"
+      name: a.name.replace(/[()]/g, "").trim(),
       isHazardous: a.is_potentially_hazardous_asteroid,
-      // Format speed to a clean whole number (e.g., "45,000")
       speedKmh: Math.round(
         parseFloat(
           a.close_approach_data[0].relative_velocity.kilometers_per_hour,
         ),
       ).toLocaleString(),
-      // Lunar distance (1 LD = distance from Earth to Moon)
       lunarDistance: parseFloat(
         a.close_approach_data[0].miss_distance.lunar,
       ).toFixed(2),
+      // NEW: Get the maximum estimated diameter in meters
+      estimatedDiameter: `~${Math.round(a.estimated_diameter.meters.estimated_diameter_max)}m`,
     }))
     .sort(
       (a: any, b: any) =>
         parseFloat(a.lunarDistance) - parseFloat(b.lunarDistance),
-    ); // Closest first
+    );
 
   const hazardCount = asteroids.filter((a: any) => a.isHazardous).length;
 
@@ -124,7 +124,7 @@ export async function getHazardStory() {
     thumbnailUrl: "/hazard-icon.png",
     statusColor: hazardCount > 0 ? "red" : "green",
     text: `${asteroids.length} Near Earth Objects (${hazardCount} Hazardous)`,
-    asteroids, // Pass the detailed array to the frontend
+    asteroids,
   };
 }
 
