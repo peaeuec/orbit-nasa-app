@@ -2,7 +2,6 @@
 
 import { User } from "@supabase/supabase-js";
 import Link from "next/link";
-import { User as UserIcon } from "lucide-react";
 
 export default function UserBadge({ user }: { user: User }) {
   // 1. Get Username & Avatar

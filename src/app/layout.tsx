@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import SmoothScroll from '@/components/SmoothScroll';
+import SmoothScroll from "@/components/SmoothScroll";
+import CustomCursor from "@/components/CustomCursor";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,15 +22,16 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="en">
       <body className={geistSans.className}>
-        {/* Wrap everything inside SmoothScroll */}
-        <SmoothScroll>
-          {children}
-        </SmoothScroll>
+        {/* Global UI stuff goes first */}
+        <CustomCursor />
+
+        {/* App content */}
+        <SmoothScroll>{children}</SmoothScroll>
       </body>
     </html>
   );

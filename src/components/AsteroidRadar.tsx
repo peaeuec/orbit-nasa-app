@@ -41,7 +41,7 @@ export default function AsteroidRadar({ data }: AsteroidRadarProps) {
     const lenis = new Lenis({
       wrapper: scrollRef.current, // The overflow container
       content: scrollRef.current.firstElementChild as HTMLElement, // The inner moving content
-      lerp: 0.9, // Smoothness factor
+      lerp: 0.1, // Smoothness factor
     });
 
     function raf(time: number) {
