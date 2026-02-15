@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { SpacePost } from "@/lib/types";
 import { X, Maximize2, ArrowRight, BookOpen } from "lucide-react";
 import { motion } from "framer-motion";
+import StaggeredText from "@/components/StaggeredText";
 
 /* ---------------- TYPEWRITER HOOK ---------------- */
 function useTypewriter(text: string, speed = 38) {
@@ -21,37 +22,6 @@ function useTypewriter(text: string, speed = 38) {
   }, [text, speed]);
 
   return displayed;
-}
-/* ------------------------------------------------ */
-
-/* ---------------- STAGGERED HOVER TEXT ---------------- */
-function StaggeredTitle({
-  text,
-  className,
-}: {
-  text: string;
-  className?: string;
-}) {
-  return (
-    <span className={`flex whitespace-pre ${className}`}>
-      {text.split("").map((char, i) => (
-        <span key={i} className="relative overflow-hidden inline-flex">
-          <span
-            className="transition-transform duration-500 ease-out group-hover/title:-translate-y-full"
-            style={{ transitionDelay: `${i * 15}ms` }}
-          >
-            {char}
-          </span>
-          <span
-            className="absolute inset-0 transition-transform duration-500 ease-out translate-y-full group-hover/title:translate-y-0 text-white"
-            style={{ transitionDelay: `${i * 15}ms` }}
-          >
-            {char}
-          </span>
-        </span>
-      ))}
-    </span>
-  );
 }
 /* ------------------------------------------------ */
 
@@ -176,7 +146,7 @@ function NextApodCountdown() {
   if (!timeLeft) return null;
 
   return (
-    <span className="flex items-center gap-2 text-cyan-400 text-sm font-mono font-bold tracking-widest whitespace-nowrap">
+    <span className="flex items-center gap-2 text-cyan-500 text-sm font-mono font-bold tracking-widest whitespace-nowrap">
       <span className="opacity-60 hidden md:inline">NEXT IN:</span>
       <span className="text-white">{timeLeft}</span>
     </span>
@@ -215,13 +185,17 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
             <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse shrink-0" />
 
             <button className="group/title outline-none cursor-none text-left flex">
-              <StaggeredTitle
+              <StaggeredText
                 text={typedTitle}
                 className="text-cyan-400 text-lg md:text-xl font-bold uppercase tracking-[0.2em] hidden md:flex"
+                hideClass="group-hover/title:-translate-y-full"
+                showClass="group-hover/title:translate-y-0"
               />
-              <StaggeredTitle
+              <StaggeredText
                 text="APOD"
                 className="text-cyan-400 text-lg font-bold uppercase tracking-[0.2em] flex md:hidden"
+                hideClass="group-hover/title:-translate-y-full"
+                showClass="group-hover/title:translate-y-0"
               />
             </button>
           </div>
@@ -237,14 +211,13 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
           </button>
         </div>
 
-        {/* HERO CARD WITH NEW ANIMATIONS */}
+        {/* HERO CARD */}
         <motion.div
           initial={{ opacity: 0, scale: 0.98, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          whileHover={{ y: -8 }} // 1. The Zero-G Float
-          transition={{ duration: 0.5, ease: "easeOut" }}
-          // 2. Added hover shadows and border glow, swapped to cursor-none
-          className="relative group rounded-3xl overflow-hidden border border-gray-800 bg-gray-900 shadow-2xl hover:shadow-[0_20px_40px_-15px_rgba(6,182,212,0.15)] hover:border-cyan-900/50 transition-all duration-500 cursor-none"
+          transition={{ duration: 0.9, ease: "easeOut" }}
+          data-cursor-image="true"
+          className="relative group rounded-3xl overflow-hidden border border-gray-800 bg-gray-900 shadow-2xl hover:shadow-[0_20px_40px_-15px_rgba(6,182,212,0.15)] hover:border-cyan-900/50 transition-all duration-500 cursor-none flex flex-col justify-end"
           onClick={() => setIsOpen(true)}
         >
           {hero.mediaType === "video" ? (
@@ -261,7 +234,6 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
               <img
                 src={hero.imageUrl}
                 alt={hero.title}
-                // 3. The Cinematic Zoom effect added to the image
                 className="w-full h-auto object-contain transform transition-transform duration-[2s] ease-out group-hover:scale-105"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-90" />
@@ -269,20 +241,26 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
             </div>
           )}
 
-          <div className="absolute top-6 right-6 bg-black/50 backdrop-blur-md p-3 rounded-full opacity-0 group-hover:opacity-100 transition transform group-hover:scale-110 z-20 border border-white/10">
+          <button className="absolute top-6 right-6 bg-black/50 backdrop-blur-md p-3 rounded-full opacity-0 group-hover:opacity-100 transition transform group-hover:scale-110 z-20 border-2 border-cyan-500/50 hover:border-cyan-400 hover:shadow-[0_0_15px_rgba(6,182,212,0.5)] cursor-none">
             <Maximize2 className="text-white w-5 h-5" />
-          </div>
+          </button>
 
-          <div className="absolute bottom-0 left-0 w-full p-6 md:p-10 z-10 pt-32">
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold text-white mb-4 drop-shadow-xl leading-tight">
+          <div className="absolute bottom-0 left-0 w-full p-6 md:p-10 z-10 pt-32 pointer-events-none">
+            <h1
+              data-cursor-invert="true"
+              className="w-fit text-3xl md:text-5xl lg:text-6xl font-extrabold text-white mb-4 drop-shadow-xl leading-tight pointer-events-auto"
+            >
               {hero.title}
             </h1>
 
-            <p className="text-gray-200 line-clamp-3 max-w-3xl text-sm md:text-lg drop-shadow-md leading-relaxed mb-6">
+            <p
+              data-cursor-invert="true"
+              className="text-gray-200 line-clamp-3 max-w-3xl text-sm md:text-lg drop-shadow-md leading-relaxed mb-6 pointer-events-auto"
+            >
               {hero.description}
             </p>
 
-            <button className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition shadow-lg shadow-blue-900/20 group-hover:shadow-blue-500/40 cursor-none">
+            <button className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition shadow-lg shadow-blue-900/20 group-hover:shadow-cyan-500/40 pointer-events-auto cursor-none">
               <BookOpen size={16} />
               <span>Read Full Story</span>
               <ArrowRight
