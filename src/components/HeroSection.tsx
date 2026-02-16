@@ -180,7 +180,7 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
     <>
       <div className="w-full mb-12">
         {/* HEADER */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 border-b border-gray-800 pb-2 animate-soft-fade">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2 pb-2 ml-2 mr-2 animate-soft-fade">
           <div className="flex items-center gap-3">
             <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse shrink-0" />
 

@@ -56,7 +56,7 @@ body {
   /* FIX: Ensure body takes full width/height without forcing scrollbars */
   min-height: 100vh;
   width: 100%;
-  overflow-x: hidden; /* Prevents horizontal scroll from Masonry grids */
+  overflow-x: clip; /* Prevents horizontal scroll from Masonry grids */
 }
 
 /* ---------------- SCROLLBAR STYLING ---------------- */
