@@ -227,19 +227,22 @@ export default function AsteroidRadar({ data }: AsteroidRadarProps) {
           data-cursor-invert="true"
         >
           <span className="text-2xl">☄️</span>
-          <StaggeredText
-            text="Asteroid Radar"
-            className="font-bold text-2xl text-cyan-400"
-          />
+          <button>
+            <StaggeredText
+              text="Asteroid Radar"
+              className="font-bold text-2xl text-cyan-400"
+            />
+          </button>
         </h3>
-
-        <span
-          className={`px-3 py-1 rounded-full text-xs font-bold tracking-wider ${
-            isDanger ? "bg-red-500 text-black" : "bg-green-500 text-black"
-          }`}
-        >
-          {isDanger ? "WARNING" : "SAFE"}
-        </span>
+        <button>
+          <span
+            className={`px-3 py-1 rounded-full text-xs font-bold tracking-wider ${
+              isDanger ? "bg-red-500 text-black" : "bg-green-500 text-black"
+            }`}
+          >
+            {isDanger ? "WARNING" : "SAFE"}
+          </span>
+        </button>
       </div>
 
       {/* --- SUMMARY --- */}

@@ -146,7 +146,7 @@ function NextApodCountdown() {
   if (!timeLeft) return null;
 
   return (
-    <span className="flex items-center gap-2 text-cyan-500 text-sm font-mono font-bold tracking-widest whitespace-nowrap">
+    <span className="flex items-center gap-2 text-cyan-400 text-sm font-mono font-bold tracking-widest whitespace-nowrap">
       <span className="opacity-60 hidden md:inline">NEXT IN:</span>
       <span className="text-white">{timeLeft}</span>
     </span>

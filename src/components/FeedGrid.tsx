@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { SpacePost } from "@/lib/types";
 import {
   X,
@@ -29,6 +29,122 @@ interface FeedGridProps {
   userId?: string;
 }
 
+/* =========================================================
+   INDIVIDUAL FEED CARD (Handles Ripple & Coordinates)
+   ========================================================= */
+function FeedCard({
+  post,
+  index,
+  onClick,
+  isLiked,
+  displayLikes,
+}: {
+  post: SpacePost;
+  index: number;
+  onClick: (post: SpacePost) => void;
+  isLiked: boolean;
+  displayLikes: number;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseEnter = (e: React.MouseEvent) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    setIsHovered(true);
+  };
+
+  const handleMouseLeave = (e: React.MouseEvent) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    setIsHovered(false);
+  };
+
+  const renderContent = (isRipple: boolean) => {
+    const bgColor = isRipple ? "bg-gray-900" : "bg-gray-900/40";
+    const borderColor = isRipple ? "border-cyan-500/50" : "border-gray-800";
+    const titleColor = isRipple ? "text-cyan-400" : "text-white";
+
+    return (
+      <div
+        className={`flex flex-col h-full w-full border rounded-2xl overflow-hidden transition-colors duration-300 ${bgColor} ${borderColor}`}
+      >
+        <div className="relative w-full">
+          <img
+            src={post.imageUrl}
+            alt={post.title}
+            className="w-full h-auto object-cover"
+            loading="lazy"
+          />
+          {post.mediaType === "video" && (
+            <div
+              className={`absolute inset-0 flex items-center justify-center transition ${isRipple ? "bg-black/40" : "bg-black/20"}`}
+            >
+              <PlayCircle
+                className={`w-12 h-12 text-white drop-shadow-lg opacity-80 transition transform ${isRipple ? "scale-110" : "scale-100"}`}
+              />
+            </div>
+          )}
+          <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2 py-1 rounded-full flex items-center gap-1">
+            <Heart
+              size={12}
+              className={isLiked ? "fill-pink-500 text-pink-500" : "text-white"}
+            />
+            <span className="text-xs font-bold text-white">{displayLikes}</span>
+          </div>
+        </div>
+
+        <div className="p-5 flex-1 flex flex-col justify-between">
+          <div>
+            <h3
+              className={`font-bold text-lg leading-tight mb-2 transition-colors ${titleColor}`}
+            >
+              {post.title}
+            </h3>
+            <p className="text-sm text-gray-400 line-clamp-3">
+              {post.description?.replace(/<[^>]*>?/gm, "")}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <motion.div
+      ref={cardRef}
+      onClick={() => onClick(post)}
+      initial={{ opacity: 0, y: 50 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "100px" }}
+      transition={{ duration: 0.5, delay: index * 0.05 }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      data-cursor-image="true"
+      className="relative group mb-8 break-inside-avoid cursor-none rounded-2xl overflow-hidden shrink-0"
+    >
+      {/* 1. DEFAULT BOTTOM LAYER */}
+      {renderContent(false)}
+
+      {/* 2. HOVER TOP LAYER (Clipped by Ripple) */}
+      <div
+        className="absolute inset-0 z-10 pointer-events-none transition-[clip-path] duration-500 ease-out"
+        style={{
+          clipPath: `circle(${isHovered ? 150 : 0}% at ${mousePos.x}px ${mousePos.y}px)`,
+        }}
+      >
+        {renderContent(true)}
+      </div>
+    </motion.div>
+  );
+}
+
+/* =========================================================
+   MAIN FEED GRID COMPONENT
+   ========================================================= */
 export default function FeedGrid({
   posts,
   initialLikes = [],
@@ -120,38 +236,26 @@ export default function FeedGrid({
     if (!text) return "No description available.";
 
     let clean = text;
-
-    // 1. Normalize NASA spacing quirks
-    // Non-breaking spaces → real spaces
     clean = clean.replace(/\u00A0/g, " ");
-
-    // 2. Convert NASA "paragraph gaps" into real paragraph breaks
-    // Two or more spaces followed by a capital letter = new paragraph
     clean = clean.replace(/\s{2,}(?=[A-Z])/g, "<br /><br />");
-
-    // Handle real newlines just in case
     clean = clean.replace(/\r\n|\r|\n/g, "<br />");
 
-    // 3. Hide existing <a> tags so regex doesn't break them
     const existingLinks: string[] = [];
     clean = clean.replace(/<a[\s\S]*?<\/a>/gi, (match) => {
       existingLinks.push(match);
       return `___LINK_PLACEHOLDER_${existingLinks.length - 1}___`;
     });
 
-    // 4. Auto-link plain URLs
     const urlRegex = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
     clean = clean.replace(urlRegex, (url) => {
       const href = url.startsWith("www.") ? `http://${url}` : url;
       return `<a href="${href}">${url}</a>`;
     });
 
-    // 5. Restore original <a> tags
     existingLinks.forEach((link, index) => {
       clean = clean.replace(`___LINK_PLACEHOLDER_${index}___`, link);
     });
 
-    // 6. Force all links to open in new tab
     clean = clean.replace(/<a\b([^>]*)>/gi, (match, attributes) => {
       if (!attributes.includes("target=")) {
         return `<a target="_blank" rel="noopener noreferrer" ${attributes}>`;
@@ -170,53 +274,14 @@ export default function FeedGrid({
         columnClassName="pl-8 bg-clip-padding"
       >
         {posts.map((post, index) => (
-          <motion.div
+          <FeedCard
             key={post.id}
-            onClick={() => setSelectedPost(post)}
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "100px" }}
-            transition={{ duration: 0.5, delay: index * 0.05 }}
-            className="group mb-8 break-inside-avoid"
-          >
-            <div className="flex flex-col bg-gray-900/40 border border-gray-800 rounded-2xl overflow-hidden hover:border-blue-500/50 hover:bg-gray-900 transition duration-300 cursor-pointer">
-              <div className="relative w-full">
-                <img
-                  src={post.imageUrl}
-                  alt={post.title}
-                  className="w-full h-auto object-cover"
-                  loading="lazy"
-                />
-                {post.mediaType === "video" && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition">
-                    <PlayCircle className="w-12 h-12 text-white drop-shadow-lg opacity-80 group-hover:scale-110 transition" />
-                  </div>
-                )}
-                <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2 py-1 rounded-full flex items-center gap-1">
-                  <Heart
-                    size={12}
-                    className={
-                      likedPosts.has(post.id)
-                        ? "fill-pink-500 text-pink-500"
-                        : "text-white"
-                    }
-                  />
-                  <span className="text-xs font-bold text-white">
-                    {getDisplayLikes(post)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-5">
-                <h3 className="font-bold text-lg leading-tight group-hover:text-blue-400 transition mb-2">
-                  {post.title}
-                </h3>
-                <p className="text-sm text-gray-400 line-clamp-3">
-                  {post.description?.replace(/<[^>]*>?/gm, "")}
-                </p>
-              </div>
-            </div>
-          </motion.div>
+            post={post}
+            index={index}
+            onClick={setSelectedPost}
+            isLiked={likedPosts.has(post.id)}
+            displayLikes={getDisplayLikes(post)}
+          />
         ))}
       </Masonry>
 
@@ -227,7 +292,7 @@ export default function FeedGrid({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+            className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 cursor-auto"
             onClick={() => setShowLogin(false)}
           >
             <motion.div
@@ -244,7 +309,7 @@ export default function FeedGrid({
                 <X size={24} />
               </button>
 
-              <div className="w-16 h-16 bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6 text-blue-400">
+              <div className="w-16 h-16 bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6 text-cyan-400">
                 <LogIn size={32} />
               </div>
 
@@ -256,7 +321,7 @@ export default function FeedGrid({
 
               <Link
                 href="/login"
-                className="block w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-full transition"
+                className="block w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-full transition"
               >
                 Log In to Continue
               </Link>
@@ -268,12 +333,12 @@ export default function FeedGrid({
       {/* --- FULL SCREEN POST MODAL --- */}
       {selectedPost && (
         <div
-          className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 cursor-auto"
           onWheel={(e) => e.stopPropagation()}
         >
           <button
             onClick={() => setSelectedPost(null)}
-            className="absolute top-6 right-6 text-gray-400 hover:text-white p-2 hover:bg-gray-800 rounded-full transition z-50"
+            className="absolute top-6 right-6 text-gray-400 hover:text-white p-2 hover:bg-gray-800 rounded-full transition z-50 cursor-none"
           >
             <X size={32} />
           </button>
@@ -283,7 +348,7 @@ export default function FeedGrid({
             <div className="md:w-[60%] bg-black flex items-center justify-center p-2 relative">
               {selectedPost.mediaType === "video" ? (
                 loadingVideo ? (
-                  <div className="flex flex-col items-center gap-2 text-blue-400">
+                  <div className="flex flex-col items-center gap-2 text-cyan-400">
                     <Loader2 className="animate-spin w-10 h-10" />
                     <span className="text-sm font-mono">
                       RETRIEVING VIDEO FEED...
@@ -311,7 +376,7 @@ export default function FeedGrid({
             {/* Details (40%) */}
             <div className="md:w-[40%] p-6 md:p-8 flex flex-col border-l border-gray-800 bg-gray-900">
               <div className="mb-6 flex items-center justify-between">
-                <span className="text-blue-400 text-xs font-mono uppercase tracking-widest border border-blue-900 px-2 py-1 rounded">
+                <span className="text-cyan-400 text-xs font-mono uppercase tracking-widest border border-cyan-900 px-2 py-1 rounded">
                   {selectedPost.date}
                 </span>
 
@@ -322,27 +387,23 @@ export default function FeedGrid({
                       JSON.stringify(selectedPost.description),
                     )
                   }
-                  className="text-gray-500 hover:text-white transition flex items-center gap-1 text-xs"
+                  className="text-gray-500 hover:text-white transition flex items-center gap-1 text-xs cursor-none"
                   title="Log raw data to console"
                 >
                   <Bug size={14} /> Raw Data
                 </button>
               </div>
 
-              <h2 className="text-2xl md:text-3xl font-bold mb-6 leading-tight pr-4">
+              <h2 className="text-2xl md:text-3xl font-bold mb-6 leading-tight pr-4 text-white">
                 {selectedPost.title}
               </h2>
 
-              {/* Tailwind handles the styling for all the HTML we preserved/generated.
-                  [&_a] targets all links to make them blue.
-                  [&_b] targets all bold text to make it white.
-               */}
               <div
                 className="flex-1 overflow-y-auto overflow-x-hidden pr-4 mb-6 custom-scrollbar"
                 data-lenis-prevent
               >
                 <div
-                  className="text-gray-300 text-sm md:text-base leading-relaxed break-words [&_a]:text-blue-400 [&_a:hover]:text-blue-300 [&_a]:underline [&_b]:text-white [&_b]:font-bold [&_strong]:text-white"
+                  className="text-gray-300 text-sm md:text-base leading-relaxed break-words [&_a]:text-cyan-400 [&_a:hover]:text-cyan-300 [&_a]:underline [&_b]:text-white [&_b]:font-bold [&_strong]:text-white"
                   dangerouslySetInnerHTML={{
                     __html: parseDescription(selectedPost.description),
                   }}
@@ -353,7 +414,7 @@ export default function FeedGrid({
               <div className="flex gap-3 mt-auto pt-6 border-t border-gray-800">
                 <button
                   onClick={(e) => handleLike(selectedPost.id, e)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold transition ${
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold transition cursor-none ${
                     likedPosts.has(selectedPost.id)
                       ? "bg-pink-600 text-white"
                       : "bg-gray-800 hover:bg-gray-700 text-white"
@@ -376,7 +437,7 @@ export default function FeedGrid({
                   href={videoUrl || selectedPost.imageUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold transition"
+                  className="flex-1 flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-700 text-white py-3 rounded-lg font-bold transition cursor-none"
                 >
                   <Download size={20} />
                   Download
