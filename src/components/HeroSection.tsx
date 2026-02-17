@@ -236,7 +236,7 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
                 alt={hero.title}
                 className="w-full h-auto object-contain transform transition-transform duration-[2s] ease-out group-hover:scale-105"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-90" />
+              <div className="absolute inset-0 bg-linear-to-t from-black via-black/40 to-transparent opacity-90" />
               <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition duration-500" />
             </div>
           )}

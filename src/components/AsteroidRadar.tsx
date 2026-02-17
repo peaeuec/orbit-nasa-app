@@ -1,6 +1,12 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import {
+  useRef,
+  useState,
+  useEffect,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import {
   AlertTriangle,
   Wind,
@@ -9,6 +15,8 @@ import {
   Ruler,
   Earth,
   Moon,
+  ArrowLeft,
+  ArrowRight,
 } from "lucide-react";
 import StaggeredText from "@/components/StaggeredText";
 import {
@@ -18,6 +26,7 @@ import {
   useAnimationFrame,
   useMotionValue,
   useSpring,
+  animate,
 } from "framer-motion";
 
 interface Asteroid {
@@ -166,7 +175,7 @@ function AsteroidCard({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       data-cursor-image="true"
-      className="relative rounded-xl cursor-none overflow-hidden shrink-0"
+      className="relative rounded-xl cursor-none overflow-hidden shrink-0 transition-all duration-300 hover:scale-105 hover:z-20 hover:shadow-2xl"
     >
       {renderContent(false)}
 
@@ -183,47 +192,86 @@ function AsteroidCard({
 }
 
 /* =========================================================
-   PHYSICS-BASED TICKER TAPE
+   PHYSICS-BASED TICKER TAPE WITH NAVIGATION
    ========================================================= */
-function SmoothTicker({ children }: { children: React.ReactNode }) {
-  const [isHovered, setIsHovered] = useState(false);
-  const xValue = useMotionValue(0);
-  const speed = useSpring(1, { damping: 40, stiffness: 50 });
+const SmoothTicker = forwardRef(
+  (props: { children: React.ReactNode; itemCount: number }, ref) => {
+    const { children, itemCount } = props;
+    const [isHovered, setIsHovered] = useState(false);
+    const xValue = useMotionValue(0);
+    const speed = useSpring(1, { damping: 40, stiffness: 50 });
+    const idleTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    speed.set(isHovered ? 0 : 1);
-  }, [isHovered, speed]);
+    const ITEM_WIDTH = 304;
+    const SET_WIDTH = itemCount * ITEM_WIDTH;
 
-  useAnimationFrame((_, delta) => {
-    let currentX = xValue.get();
-    currentX -= delta * 0.001 * speed.get();
-    if (currentX <= -50) currentX += 50;
-    xValue.set(currentX);
-  });
+    useImperativeHandle(ref, () => ({
+      scrollLeft: () => navigate(-1),
+      scrollRight: () => navigate(1),
+    }));
 
-  const x = useTransform(xValue, (v) => `${v}%`);
+    const navigate = (direction: 1 | -1) => {
+      speed.set(0);
+      if (idleTimeout.current) clearTimeout(idleTimeout.current);
 
-  return (
-    <div
-      className="relative w-full pb-4 pt-6 z-10"
-      style={{
-        maskImage:
-          "linear-gradient(to right, transparent, black 5%, black 95%, transparent)",
-      }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <div className="flex overflow-hidden">
-        <motion.div
-          style={{ x }}
-          className="flex gap-6 w-max cursor-grab active:cursor-grabbing pl-4 pr-4"
-        >
-          {children}
-        </motion.div>
+      const currentX = xValue.get();
+      const currentIndex = Math.round(currentX / ITEM_WIDTH);
+
+      const targetX = (currentIndex - direction) * ITEM_WIDTH;
+      animate(xValue, targetX, { type: "spring", stiffness: 150, damping: 25 });
+
+      idleTimeout.current = setTimeout(() => {
+        speed.set(1);
+      }, 2000);
+    };
+
+    useEffect(() => {
+      if (isHovered) {
+        speed.set(0);
+      } else {
+        if (!idleTimeout.current) speed.set(1);
+      }
+    }, [isHovered, speed]);
+
+    useAnimationFrame((_, delta) => {
+      let currentX = xValue.get();
+      if (speed.get() > 0.01) {
+        currentX -= delta * 0.05 * speed.get();
+        xValue.set(currentX);
+      }
+    });
+
+    const x = useTransform(xValue, (v) => {
+      const w = ((v % SET_WIDTH) + SET_WIDTH) % SET_WIDTH;
+      const finalX = w === 0 ? 0 : w - SET_WIDTH;
+      return `${finalX}px`;
+    });
+
+    return (
+      // FIX: Massive vertical padding (py-8 -my-4) and completely removed overflow-hidden.
+      // This allows the cards to scale up by 1.05 without EVER getting clipped by their container boundaries!
+      <div
+        className="relative w-full py-8 -my-4 z-10"
+        style={{
+          maskImage:
+            "linear-gradient(to right, transparent, black 5%, black 95%, transparent)",
+        }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <div className="flex w-full">
+          <motion.div
+            style={{ x }}
+            className="flex gap-6 w-max cursor-grab active:cursor-grabbing px-6"
+          >
+            {children}
+          </motion.div>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  },
+);
+SmoothTicker.displayName = "SmoothTicker";
 
 /* =========================================================
    MAIN RADAR COMPONENT
@@ -232,19 +280,20 @@ export default function AsteroidRadar({ data }: AsteroidRadarProps) {
   const isDanger = data.statusColor === "red";
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  const tickerRef = useRef<{ scrollLeft: () => void; scrollRight: () => void }>(
+    null,
+  );
+
   const { scrollYProgress } = useScroll({
     target: scrollContainerRef,
     offset: ["start end", "end start"],
   });
 
-  // The cinematic continuous scroll map
   const rawX = useTransform(
     scrollYProgress,
     [0.1, 0.35, 0.65, 0.9],
     [1200, 0, 0, -1200],
   );
-
-  // Heavily damped spring for a solid, weighty glide into place
   const x = useSpring(rawX, { stiffness: 60, damping: 25, mass: 1 });
   const opacity = useTransform(
     scrollYProgress,
@@ -260,104 +309,155 @@ export default function AsteroidRadar({ data }: AsteroidRadarProps) {
   return (
     <div className="relative w-full mt-40 mb-10">
       <div ref={scrollContainerRef} className="relative w-full h-[250vh]">
-        <div className="sticky top-0 w-full h-screen flex flex-col justify-center overflow-hidden py-10">
-          {/* MAIN CONTAINER: Clean, solid rounded-3xl box */}
+        <div className="sticky top-0 w-full h-screen flex flex-col justify-center py-10">
+          <style>{`
+            @keyframes border-spin {
+              100% { transform: translate(-50%, -50%) rotate(360deg); }
+            }
+            .animate-border-spin {
+              animation: border-spin 6s linear infinite;
+            }
+          `}</style>
+
           <motion.div
             style={{ x, opacity }}
-            className={`relative w-full flex flex-col p-8 md:p-10 rounded-3xl border border-gray-800 ${
+            className={`group/card relative w-full p-[2px] rounded-[2rem] overflow-hidden transition-all duration-700 ease-out hover:-translate-y-2 hover:scale-[1.005] ${
               isDanger
-                ? "bg-gradient-to-br from-red-950/30 to-black border-red-900/50 shadow-[0_20px_40px_-15px_rgba(153,27,27,0.4)]"
-                : "bg-gradient-to-br from-cyan-950/30 to-black border-cyan-900/50 shadow-[0_20px_40px_-15px_rgba(20,83,45,0.4)]"
+                ? "hover:shadow-[0_40px_80px_-15px_rgba(220,38,38,0.3)]"
+                : "hover:shadow-[0_40px_80px_-15px_rgba(34,211,238,0.25)]"
             }`}
           >
-            {/* --- HEADER --- */}
-            <div className="flex items-center justify-between mb-4 z-20">
-              <h3 className="group flex items-center gap-2 cursor-none w-fit">
-                <span className="text-2xl">☄️</span>
-                <button className="outline-none">
-                  <StaggeredText
-                    text="Asteroid Radar"
-                    className="font-bold text-2xl text-cyan-400"
-                  />
+            <div
+              className={`absolute top-1/2 left-1/2 w-[200%] aspect-square -translate-x-1/2 -translate-y-1/2 animate-border-spin z-0 ${
+                isDanger
+                  ? "bg-[conic-gradient(from_0deg,transparent_0_300deg,rgba(239,68,68,0.8)_360deg)]"
+                  : "bg-[conic-gradient(from_0deg,transparent_0_300deg,rgba(34,211,238,0.8)_360deg)]"
+              }`}
+            />
+
+            <div
+              className={`absolute inset-0 z-0 opacity-0 group-hover/card:opacity-100 transition-opacity duration-700 ${
+                isDanger ? "bg-red-500/80" : "bg-cyan-400/80"
+              }`}
+            />
+
+            <div
+              className={`absolute inset-0 z-0 ${isDanger ? "bg-red-950/30" : "bg-cyan-950/20"}`}
+            />
+
+            <div className="relative z-10 w-full h-full bg-black rounded-[calc(2rem-2px)] p-8 md:p-10 flex flex-col shadow-2xl">
+              {/* --- HEADER --- */}
+              <div className="flex items-center justify-between mb-4 z-20">
+                <h3 className="group flex items-center gap-2 cursor-none w-fit">
+                  <span className="text-2xl">☄️</span>
+                  <button className="outline-none">
+                    <StaggeredText
+                      text="Asteroid Radar"
+                      className="font-bold text-2xl text-cyan-400"
+                    />
+                  </button>
+                </h3>
+
+                <button
+                  className={`px-3 py-1 rounded-full text-xs font-bold cursor-none ${
+                    isDanger ? "bg-red-500" : "bg-green-500"
+                  } text-black`}
+                >
+                  {isDanger ? "WARNING" : "SAFE"}
                 </button>
-              </h3>
-              <button
-                className={`px-3 py-1 rounded-full text-xs font-bold cursor-none ${
-                  isDanger ? "bg-red-500" : "bg-green-500"
-                } text-black`}
-              >
-                {isDanger ? "WARNING" : "SAFE"}
-              </button>
-            </div>
+              </div>
 
-            {/* --- SUMMARY --- */}
-            <p className="text-2xl md:text-3xl font-mono font-bold mb-2 z-20">
-              {data.text}
-            </p>
-
-            {/* --- API SOURCE & INFO TOOLTIP --- */}
-            <div className="flex items-center gap-2 mb-8 z-20">
-              <p className="text-sm text-gray-500">
-                Real-time data from NASA NeoWs API
+              {/* --- SUMMARY --- */}
+              <p className="text-2xl md:text-3xl font-mono font-bold mb-4 z-20">
+                {data.text}
               </p>
-              <div
-                className="relative group/info flex items-center cursor-none"
-                data-cursor-invert="true"
-              >
-                <Info
-                  size={16}
-                  className="text-gray-500 group-hover/info:text-cyan-400 transition"
-                />
-                <div className="absolute bottom-full left-1/2 md:left-auto md:right-[-20px] -translate-x-1/2 md:translate-x-0 mb-3 w-[280px] md:w-[320px] p-5 bg-gray-900 text-xs text-gray-300 rounded-xl opacity-0 group-hover/info:opacity-100 pointer-events-none transition-all duration-300 z-50 shadow-2xl border border-gray-700">
-                  <p className="mb-3">
-                    <strong className="text-cyan-400">
-                      Lunar Distance (LD)
-                    </strong>{" "}
-                    is the space between Earth and the Moon (~384,400 km).
+
+              {/* --- SUB-HEADER: API INFO & NAVIGATION ARROWS --- */}
+              {/* Relocated arrows to sit beautifully parallel to the API tooltip text */}
+              <div className="flex items-center justify-between mb-4 z-20">
+                {/* Left side: Tooltip */}
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-gray-500">
+                    Real-time data from NASA NeoWs API
                   </p>
-                  <div className="relative flex items-center justify-between w-full h-8 px-2 mb-4 bg-black/40 rounded-full border border-gray-800/80 overflow-hidden">
-                    <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 border-t border-dashed border-gray-700"></div>
-                    <div className="relative z-10 flex items-center gap-1.5 bg-gray-900 pr-2">
-                      <Earth size={14} className="text-cyan-500" />
-                    </div>
-                    <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-900 px-2 text-[10px] text-gray-400 font-mono tracking-widest z-10 border border-gray-800 rounded-full">
-                      1.0 LD
-                    </span>
-                    <div className="relative z-10 flex items-center gap-1.5 bg-gray-900 pl-2">
-                      <Moon size={12} className="text-gray-400" />
+                  <div
+                    className="relative group/info flex items-center cursor-none"
+                    data-cursor-invert="true"
+                  >
+                    <Info
+                      size={16}
+                      className="text-gray-500 group-hover/info:text-cyan-400 transition"
+                    />
+
+                    <div className="absolute top-full left-1/2 md:left-auto md:right-[-20px] -translate-x-1/2 md:translate-x-0 mt-4 w-[280px] md:w-[320px] p-5 bg-gray-900 text-xs text-gray-300 rounded-xl opacity-0 group-hover/info:opacity-100 pointer-events-none transition-all duration-300 z-50 shadow-2xl border border-gray-700">
+                      <p className="mb-3">
+                        <strong className="text-cyan-400">
+                          Lunar Distance (LD)
+                        </strong>{" "}
+                        is the space between Earth and the Moon (~384,400 km).
+                      </p>
+                      <div className="relative flex items-center justify-between w-full h-8 px-2 mb-4 bg-black/40 rounded-full border border-gray-800/80 overflow-hidden">
+                        <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 border-t border-dashed border-gray-700"></div>
+                        <div className="relative z-10 flex items-center gap-1.5 bg-gray-900 pr-2">
+                          <Earth size={14} className="text-cyan-500" />
+                        </div>
+                        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-900 px-2 text-[10px] text-gray-400 font-mono tracking-widest z-10 border border-gray-800 rounded-full">
+                          1.0 LD
+                        </span>
+                        <div className="relative z-10 flex items-center gap-1.5 bg-gray-900 pl-2">
+                          <Moon size={12} className="text-gray-400" />
+                        </div>
+                      </div>
+                      <p>
+                        <strong className="text-red-400">
+                          Potentially Hazardous
+                        </strong>{" "}
+                        means it's large and its orbit comes relatively close to
+                        Earth. It{" "}
+                        <strong className="text-white">does not</strong> mean a
+                        collision is expected.
+                      </p>
+                      <div className="absolute bottom-full left-1/2 md:left-auto md:right-[24px] -translate-x-1/2 md:translate-x-0 -mb-[1px] border-[6px] border-transparent border-b-gray-700"></div>
                     </div>
                   </div>
-                  <p>
-                    <strong className="text-red-400">
-                      Potentially Hazardous
-                    </strong>{" "}
-                    means it's large and its orbit comes relatively close to
-                    Earth. It <strong className="text-white">does not</strong>{" "}
-                    mean a collision is expected.
-                  </p>
-                  <div className="absolute top-full left-1/2 md:left-auto md:right-[24px] -translate-x-1/2 md:translate-x-0 -mt-[1px] border-[6px] border-transparent border-t-gray-700"></div>
+                </div>
+
+                {/* Right side: Large, Thin Navigation Arrows */}
+                {/* opacity-0 -> 100 on hover creates the reveal effect without cluttering the UI */}
+                <div className="flex items-center gap-3 opacity-0 group-hover/card:opacity-100 transition-opacity duration-500">
+                  <button
+                    onClick={() => tickerRef.current?.scrollLeft()}
+                    className="w-11 h-11 flex items-center justify-center rounded-full border border-gray-700 bg-black/50 text-gray-400 hover:text-white hover:border-gray-400 hover:scale-110 hover:bg-gray-900/50 transition-all duration-300 cursor-none"
+                  >
+                    <ArrowLeft size={22} strokeWidth={1.2} />
+                  </button>
+                  <button
+                    onClick={() => tickerRef.current?.scrollRight()}
+                    className="w-11 h-11 flex items-center justify-center rounded-full border border-gray-700 bg-black/50 text-gray-400 hover:text-white hover:border-gray-400 hover:scale-110 hover:bg-gray-900/50 transition-all duration-300 cursor-none"
+                  >
+                    <ArrowRight size={22} strokeWidth={1.2} />
+                  </button>
                 </div>
               </div>
-            </div>
 
-            {/* --- THE BUTTERY SMOOTH TICKER TAPE --- */}
-            {/* FIX: Removed the stray 'index' props! */}
-            <SmoothTicker>
-              {data.asteroids.map((asteroid) => (
-                <AsteroidCard
-                  key={`set1-${asteroid.id}`}
-                  asteroid={asteroid}
-                  maxDistance={maxDistance}
-                />
-              ))}
-              {data.asteroids.map((asteroid) => (
-                <AsteroidCard
-                  key={`set2-${asteroid.id}`}
-                  asteroid={asteroid}
-                  maxDistance={maxDistance}
-                />
-              ))}
-            </SmoothTicker>
+              {/* --- THE BUTTERY SMOOTH TICKER TAPE --- */}
+              <SmoothTicker ref={tickerRef} itemCount={data.asteroids.length}>
+                {data.asteroids.map((asteroid) => (
+                  <AsteroidCard
+                    key={`set1-${asteroid.id}`}
+                    asteroid={asteroid}
+                    maxDistance={maxDistance}
+                  />
+                ))}
+                {data.asteroids.map((asteroid) => (
+                  <AsteroidCard
+                    key={`set2-${asteroid.id}`}
+                    asteroid={asteroid}
+                    maxDistance={maxDistance}
+                  />
+                ))}
+              </SmoothTicker>
+            </div>
           </motion.div>
         </div>
       </div>
