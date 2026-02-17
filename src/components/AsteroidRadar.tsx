@@ -291,8 +291,8 @@ export default function AsteroidRadar({ data }: AsteroidRadarProps) {
 
   const rawX = useTransform(
     scrollYProgress,
-    [0.1, 0.35, 0.65, 0.9],
-    [1200, 0, 0, -1200],
+    [0.1, 0.35, 0.65, 0.85],
+    [1200, 0, 0, -1000],
   );
   const x = useSpring(rawX, { stiffness: 60, damping: 25, mass: 1 });
   const opacity = useTransform(
