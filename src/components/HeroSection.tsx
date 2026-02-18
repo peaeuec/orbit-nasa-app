@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { SpacePost } from "@/lib/types";
-import { X, Maximize2, ArrowRight, BookOpen } from "lucide-react";
+import { X, Maximize2, Minimize2, ArrowRight, BookOpen } from "lucide-react";
 import { motion } from "framer-motion";
 import StaggeredText from "@/components/StaggeredText";
+import { toggleNativeFullscreen } from "@/utils/fullscreen";
 
 /* ---------------- TYPEWRITER HOOK ---------------- */
 function useTypewriter(text: string, speed = 38) {
@@ -88,17 +89,13 @@ function DateRoll({
           <RollingDigit key={`y-${i}`} value={d} delay={delay} />
         ))}
       </span>
-
       <span className="opacity-40">—</span>
-
       <span className="flex gap-[1px]">
         {monthDigits.map(({ d, delay }, i) => (
           <RollingDigit key={`m-${i}`} value={d} delay={delay} />
         ))}
       </span>
-
       <span className="opacity-40">—</span>
-
       <span className="flex gap-[1px]">
         {dayDigits.map(({ d, delay }, i) => (
           <RollingDigit key={`d-${i}`} value={d} delay={delay} />
@@ -119,12 +116,10 @@ function NextApodCountdown() {
         timeZone: "America/New_York",
       });
       const nowNY = new Date(nyTimeStr);
-
       const tomorrowNY = new Date(nowNY);
       tomorrowNY.setHours(24, 0, 0, 0);
 
       const diff = tomorrowNY.getTime() - nowNY.getTime();
-
       const h = Math.floor((diff / (1000 * 60 * 60)) % 24)
         .toString()
         .padStart(2, "0");
@@ -157,9 +152,15 @@ function NextApodCountdown() {
 export default function HeroSection({ hero }: { hero: SpacePost }) {
   const [isOpen, setIsOpen] = useState(false);
 
+  // --- ZOOM & FULLSCREEN STATES ---
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [transformOrigin, setTransformOrigin] = useState("center center");
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
   const typedTitle = useTypewriter("Astronomy Picture of the Day");
   const dateStartDelay = 38 * "Astronomy Picture of the Day".length + 150;
 
+  // Locks the body scroll when the modal is open
   useEffect(() => {
     if (isOpen) {
       document.documentElement.style.overflow = "hidden";
@@ -167,6 +168,7 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
     } else {
       document.documentElement.style.overflow = "";
       document.body.style.overflow = "";
+      setIsZoomed(false); // Reset zoom when modal closes
     }
     return () => {
       document.documentElement.style.overflow = "";
@@ -174,16 +176,41 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
     };
   }, [isOpen]);
 
+  // Master listener to track native fullscreen state globally
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isFull = !!document.fullscreenElement;
+      setIsFullscreen(isFull);
+      if (!isFull) setIsZoomed(false); // Ensure zoom resets if they press 'ESC'
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  // Calculates the exact pixel the user is hovering over to use as the zoom anchor
+  const handleZoomMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isZoomed) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setTransformOrigin(`${x}% ${y}%`);
+  };
+
   if (!hero) return null;
 
   return (
     <>
+      <style>{`
+        :fullscreen { cursor: auto !important; }
+        :fullscreen * { cursor: inherit !important; }
+      `}</style>
+
       <div className="w-full mb-12">
         {/* HEADER */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2 pb-2 ml-2 mr-2 animate-soft-fade">
           <div className="flex items-center gap-3">
             <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse shrink-0" />
-
             <button className="group/title outline-none cursor-none text-left flex">
               <StaggeredText
                 text={typedTitle}
@@ -204,7 +231,6 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
             <div className="col-start-1 row-start-1 transition-transform duration-500 ease-out group-hover/date:-translate-y-full flex items-center h-full">
               <DateRoll date={hero.date} startDelay={dateStartDelay} />
             </div>
-
             <div className="col-start-1 row-start-1 transition-transform duration-500 ease-out translate-y-full group-hover/date:translate-y-0 flex items-center h-full">
               <NextApodCountdown />
             </div>
@@ -218,32 +244,79 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
           transition={{ duration: 0.9, ease: "easeOut" }}
           data-cursor-image="true"
           className="relative group rounded-3xl overflow-hidden border border-gray-800 bg-gray-900 shadow-2xl hover:shadow-[0_20px_40px_-15px_rgba(6,182,212,0.15)] hover:border-cyan-900/50 transition-all duration-500 cursor-none flex flex-col justify-end"
-          onClick={() => setIsOpen(true)}
+          // We only trigger the modal if it's NOT fullscreened
+          onClick={() => {
+            if (!isFullscreen) setIsOpen(true);
+          }}
         >
-          {hero.mediaType === "video" ? (
-            <div className="aspect-video w-full relative">
+          {/* FIX 1: Added group/wrapper so the button inside still detects hover during fullscreen. Also injected centering logic dynamically. */}
+          <div
+            className={`relative w-full overflow-hidden transition-colors duration-300 group/wrapper ${isFullscreen ? "h-screen bg-black flex items-center justify-center" : ""}`}
+            id="hero-media-wrapper"
+            onMouseMove={isFullscreen ? handleZoomMove : undefined}
+            onClick={(e) => {
+              if (isFullscreen && hero.mediaType === "image") {
+                e.stopPropagation(); // Prevents it bubbling to the motion.div
+                setIsZoomed(!isZoomed);
+              }
+            }}
+            style={{
+              cursor:
+                isFullscreen && hero.mediaType === "image"
+                  ? isZoomed
+                    ? "zoom-out"
+                    : "zoom-in"
+                  : "auto",
+            }}
+          >
+            {hero.mediaType === "video" ? (
               <iframe
                 src={hero.imageUrl}
-                className="w-full h-full pointer-events-none transform transition-transform duration-[2s] ease-out group-hover:scale-105"
+                // Dynamic sizing guarantees it doesn't crop awkwardly
+                className={`pointer-events-none transform transition-transform duration-[2s] ease-out group-hover:scale-105 ${isFullscreen ? "w-full h-full" : "w-full aspect-video"}`}
                 title="APOD Video"
               />
-              <div className="absolute inset-0 bg-transparent" />
-            </div>
-          ) : (
-            <div className="relative w-full overflow-hidden">
+            ) : (
               <img
                 src={hero.imageUrl}
                 alt={hero.title}
-                className="w-full h-auto object-contain transform transition-transform duration-[2s] ease-out group-hover:scale-105"
+                // FIX 2: Added conditional w-full h-full when full-screened so object-contain can letterbox it properly!
+                className={`object-contain transition-transform ease-out ${!isZoomed && !isFullscreen ? "duration-[2s] group-hover:scale-105" : "duration-300"} ${isFullscreen ? "w-full h-full" : "w-full h-auto"}`}
+                style={
+                  isFullscreen
+                    ? {
+                        transform: isZoomed ? "scale(2.5)" : "scale(1)",
+                        transformOrigin: transformOrigin,
+                      }
+                    : {}
+                }
               />
-              <div className="absolute inset-0 bg-linear-to-t from-black via-black/40 to-transparent opacity-90" />
-              <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition duration-500" />
-            </div>
-          )}
+            )}
 
-          <button className="absolute top-6 right-6 bg-black/50 backdrop-blur-md p-3 rounded-full opacity-0 group-hover:opacity-100 transition transform group-hover:scale-110 z-20 border-2 border-cyan-500/50 hover:border-cyan-400 hover:shadow-[0_0_15px_rgba(6,182,212,0.5)] cursor-none">
-            <Maximize2 className="text-white w-5 h-5" />
-          </button>
+            {/* Hides the black gradients when the user enters fullscreen */}
+            {!isFullscreen && (
+              <>
+                <div className="absolute inset-0 bg-linear-to-t from-black via-black/40 to-transparent opacity-90 pointer-events-none" />
+                <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition duration-500 pointer-events-none" />
+              </>
+            )}
+
+            {/* FIX 3: The button is now INSIDE the wrapper! */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleNativeFullscreen(e, "hero-media-wrapper");
+              }}
+              // Uses both group-hover and group-hover/wrapper so it appears correctly in both views!
+              className="absolute top-6 right-6 bg-black/50 backdrop-blur-md p-3 rounded-full opacity-0 group-hover:opacity-100 group-hover/wrapper:opacity-100 transition transform hover:scale-110 z-20 border-2 border-cyan-500/50 hover:border-cyan-400 hover:shadow-[0_0_15px_rgba(6,182,212,0.5)] cursor-none"
+            >
+              {isFullscreen ? (
+                <Minimize2 className="text-white w-5 h-5" />
+              ) : (
+                <Maximize2 className="text-white w-5 h-5" />
+              )}
+            </button>
+          </div>
 
           <div className="absolute bottom-0 left-0 w-full p-6 md:p-10 z-10 pt-32 pointer-events-none">
             <h1
@@ -252,14 +325,12 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
             >
               {hero.title}
             </h1>
-
             <p
               data-cursor-invert="true"
               className="text-gray-200 line-clamp-3 max-w-3xl text-sm md:text-lg drop-shadow-md leading-relaxed mb-6 pointer-events-auto"
             >
               {hero.description}
             </p>
-
             <button className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition shadow-lg shadow-blue-900/20 group-hover:shadow-cyan-500/40 pointer-events-auto cursor-none">
               <BookOpen size={16} />
               <span>Read Full Story</span>
@@ -272,7 +343,7 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
         </motion.div>
       </div>
 
-      {/* FULL SCREEN MODAL (unchanged) */}
+      {/* FULL SCREEN MODAL */}
       {isOpen && (
         <div
           className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 cursor-auto"
@@ -287,7 +358,20 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
             className="bg-gray-900 border border-gray-800 rounded-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden flex flex-col md:flex-row shadow-2xl relative"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="md:w-2/3 bg-black flex items-center justify-center p-4">
+            <div
+              id="modal-media-wrapper"
+              className="md:w-2/3 bg-black flex items-center justify-center p-4 relative group/modal-media overflow-hidden"
+              onClick={() => setIsZoomed(!isZoomed)}
+              onMouseMove={handleZoomMove}
+              style={{
+                cursor:
+                  hero.mediaType === "image"
+                    ? isZoomed
+                      ? "zoom-out"
+                      : "zoom-in"
+                    : "auto",
+              }}
+            >
               {hero.mediaType === "video" ? (
                 <iframe
                   src={hero.imageUrl}
@@ -298,9 +382,26 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
                 <img
                   src={hero.imageUrl}
                   alt={hero.title}
-                  className="w-full h-full max-h-[90vh] object-contain"
+                  className={`w-full h-full max-h-[90vh] object-contain transition-transform duration-300 ease-out`}
+                  style={{
+                    transform: isZoomed ? "scale(2.5)" : "scale(1)",
+                    transformOrigin: transformOrigin,
+                  }}
                 />
               )}
+
+              <button
+                onClick={(e) =>
+                  toggleNativeFullscreen(e, "modal-media-wrapper")
+                }
+                className="absolute top-6 right-6 bg-black/50 backdrop-blur-md p-3 rounded-full opacity-0 group-hover/modal-media:opacity-100 transition transform hover:scale-110 z-20 border border-gray-600 hover:border-cyan-400 hover:shadow-[0_0_15px_rgba(6,182,212,0.5)] cursor-none"
+              >
+                {isFullscreen ? (
+                  <Minimize2 className="text-white w-5 h-5" />
+                ) : (
+                  <Maximize2 className="text-white w-5 h-5" />
+                )}
+              </button>
             </div>
 
             <div
@@ -312,11 +413,9 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
                   {hero.date}
                 </span>
               </div>
-
               <h2 className="text-3xl font-bold mb-6 text-white leading-tight">
                 {hero.title}
               </h2>
-
               <div className="prose prose-invert prose-sm max-w-none text-gray-300">
                 <p className="whitespace-pre-line leading-relaxed text-base">
                   {hero.description}

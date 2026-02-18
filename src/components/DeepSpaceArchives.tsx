@@ -72,6 +72,7 @@ export default function DeepSpaceArchives() {
   return (
     <section
       ref={sectionRef}
+      // Added group/archive here to detect section hover
       className="relative w-full min-h-screen flex flex-col items-center justify-center border-t border-gray-900 overflow-hidden group/archive cursor-none"
     >
       <style>{`
@@ -162,29 +163,55 @@ export default function DeepSpaceArchives() {
           viewport={{ once: true, margin: "-100px" }}
           className="flex flex-col items-center"
         >
-          {/* 1. CINEMATIC "APPEAR" HEADING (Now identified as a button!) */}
+          {/* 1. CINEMATIC "APPEAR" HEADING (With nested Stagger Hover) */}
           <motion.button
             variants={headingVariants}
-            className="outline-none cursor-none text-5xl md:text-7xl font-extrabold text-white group-hover/archive:text-cyan-400 transition-colors duration-1000 tracking-tight drop-shadow-2xl mb-6 flex justify-center whitespace-nowrap"
+            // FIX 1: Added group-hover/archive:text-cyan-400 so the text turns cyan when the section activates
+            className="group/title outline-none cursor-none text-5xl md:text-7xl font-extrabold text-white group-hover/archive:text-cyan-400 transition-colors duration-1000 tracking-tight drop-shadow-2xl mb-6 flex justify-center whitespace-nowrap"
             data-cursor-invert="true"
           >
-            {headingText.split(" ").map((word, i) => (
-              <span key={i} className="inline-block whitespace-nowrap">
-                {word.split("").map((char, j) => (
-                  <motion.span
-                    key={j}
-                    variants={charVariants}
-                    className="inline-block origin-bottom"
-                  >
-                    {char}
-                  </motion.span>
-                ))}
-                {/* Add a space after each word except the last one */}
-                {i !== headingText.split(" ").length - 1 && (
-                  <span className="inline-block">&nbsp;</span>
-                )}
-              </span>
-            ))}
+            {headingText.split(" ").map((word, i, arr) => {
+              // Calculate the absolute index across the entire string so the stagger doesn't restart at 0 for every word!
+              const absoluteCharOffset = arr.slice(0, i).join("").length + i;
+
+              return (
+                <span key={i} className="inline-block whitespace-nowrap">
+                  {word.split("").map((char, j) => {
+                    const delay = (absoluteCharOffset + j) * 15; // 15ms stagger per letter
+
+                    return (
+                      <motion.span
+                        key={j}
+                        variants={charVariants} // Framer Motion handles the initial mount
+                        // overflow-hidden ensures the rolling text is clipped cleanly
+                        className="relative overflow-hidden inline-flex origin-bottom"
+                      >
+                        {/* The Default Text (Inherits color, slides up on hover) */}
+                        <span
+                          className="transition-transform duration-500 ease-out group-hover/title:-translate-y-full"
+                          style={{ transitionDelay: `${delay}ms` }}
+                        >
+                          {char}
+                        </span>
+
+                        {/* The Hover Text (FIX 2: Changed to text-white, slides up from below) */}
+                        <span
+                          className="absolute inset-0 transition-transform duration-500 ease-out translate-y-full text-white group-hover/title:translate-y-0"
+                          style={{ transitionDelay: `${delay}ms` }}
+                        >
+                          {char}
+                        </span>
+                      </motion.span>
+                    );
+                  })}
+
+                  {/* Keep spaces intact between words */}
+                  {i !== arr.length - 1 && (
+                    <span className="inline-block">&nbsp;</span>
+                  )}
+                </span>
+              );
+            })}
           </motion.button>
 
           {/* 2. SEQUENTIAL WORD "REVEAL" SUBTEXT */}
