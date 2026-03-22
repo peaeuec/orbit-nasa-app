@@ -14,19 +14,17 @@ function shuffleArray<T>(array: T[]): T[] {
 
 // 1. Trending Feed (Active Missions & News)
 export async function getTrendingFeed(): Promise<SpacePost[]> {
-  // SIMPLIFIED QUERY: We search for "James Webb" specifically to guarantee hits.
-  // Complex comma-separated queries sometimes fail with the date filter.
   const query = "James Webb Space Telescope";
 
   const res = await fetch(
     `https://images-api.nasa.gov/search?q=${query}&media_type=image,video&year_start=2023&page_size=25`,
+    { next: { revalidate: 3600 } }, // FIX: Added 1-hour caching
   );
 
   if (!res.ok) return [];
   const data = await res.json();
   const items = data.collection?.items || [];
 
-  // FIX: Explicitly tell TypeScript this is a list of SpacePost objects
   const cleanItems: SpacePost[] = items.map(normalizeLibraryItem);
 
   return cleanItems;
@@ -36,19 +34,17 @@ export async function getTrendingFeed(): Promise<SpacePost[]> {
 export async function getPopularFeed(): Promise<SpacePost[]> {
   const query = "earth";
 
-  // Fetch a larger pool (60 items) and shuffle
   const res = await fetch(
     `https://images-api.nasa.gov/search?q=${query}&media_type=image&page_size=60`,
+    { next: { revalidate: 3600 } }, // FIX: Added 1-hour caching
   );
 
   if (!res.ok) return [];
   const data = await res.json();
   const items = data.collection?.items || [];
 
-  // FIX: Explicitly tell TypeScript this is a list of SpacePost objects
   const cleanItems: SpacePost[] = items.map(normalizeLibraryItem);
 
-  // Now shuffle works because it knows what it is shuffling
   return shuffleArray(cleanItems).slice(0, 24);
 }
 
@@ -56,6 +52,7 @@ export async function getPopularFeed(): Promise<SpacePost[]> {
 export async function getHeroPost(): Promise<SpacePost> {
   const res = await fetch(
     `https://api.nasa.gov/planetary/apod?api_key=${API_KEY}`,
+    { next: { revalidate: 3600 } }, // FIX: Cache APOD since it only changes once a day!
   );
   if (!res.ok) throw new Error("Failed to fetch APOD");
   return normalizeAPOD(await res.json());
@@ -65,10 +62,10 @@ export async function getPostById(nasaId: string): Promise<SpacePost | null> {
   try {
     const res = await fetch(
       `https://images-api.nasa.gov/search?nasa_id=${nasaId}`,
+      { next: { revalidate: 3600 } }, // FIX: Cache individual post lookups
     );
     const data = await res.json();
     const items = data.collection?.items || [];
-    // Only return if we found an item
     if (items.length > 0) {
       return normalizeLibraryItem(items[0]);
     }
@@ -108,7 +105,6 @@ export async function getHazardStory() {
       lunarDistance: parseFloat(
         a.close_approach_data[0].miss_distance.lunar,
       ).toFixed(2),
-      // NEW: Get the maximum estimated diameter in meters
       estimatedDiameter: `~${Math.round(a.estimated_diameter.meters.estimated_diameter_max)}m`,
     }))
     .sort(
@@ -132,31 +128,25 @@ export async function getHazardStory() {
 export async function searchLibraryItems(
   query: string,
   page: number = 1,
-  mediaTypes: string[] = ["image", "video"], // Default to Image + Video
+  mediaTypes: string[] = ["image", "video"],
 ): Promise<SpacePost[]> {
-  // Join types (e.g., "image,video,audio")
   const typeParam = mediaTypes.join(",");
 
-  // We ask for 100 items per page (NASA's max)
   const url = `https://images-api.nasa.gov/search?q=${query}&media_type=${typeParam}&page=${page}&page_size=100`;
 
   try {
-    const res = await fetch(url);
+    const res = await fetch(url); // We leave search completely dynamic (uncached)
     if (!res.ok) return [];
 
     const data = await res.json();
     const items = data.collection?.items || [];
 
-    // Normalize and Filter
-    return (
-      items
-        .map(normalizeLibraryItem)
-        // Filter out items that are missing essential media
-        .filter(
-          (item: SpacePost) =>
-            item.imageUrl && item.imageUrl !== "/placeholder.jpg",
-        )
-    );
+    return items
+      .map(normalizeLibraryItem)
+      .filter(
+        (item: SpacePost) =>
+          item.imageUrl && item.imageUrl !== "/placeholder.jpg",
+      );
   } catch (e) {
     console.error("Search failed:", e);
     return [];

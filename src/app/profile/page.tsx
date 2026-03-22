@@ -6,7 +6,8 @@ import { LogOut, Rocket } from "lucide-react";
 import { signOut } from "@/app/actions";
 import AvatarUpload from "@/components/AvatarUpload";
 import { getBulkLikeCounts } from "@/lib/db";
-import StaggeredText from "@/components/StaggeredText"; // 1. Imported StaggeredText
+import StaggeredText from "@/components/StaggeredText";
+import BackButton from "@/components/BackButton"; // 1. Imported BackButton
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -48,50 +49,59 @@ export default async function ProfilePage() {
   return (
     <main className="min-h-screen bg-black text-white">
       {/* Profile Header */}
-      <div className="bg-gradient-to-b from-gray-900 to-black border-b border-gray-800 pb-12 pt-24 px-4">
-        <div className="container mx-auto max-w-6xl flex flex-col md:flex-row items-center md:items-end justify-between gap-6">
-          <div className="flex items-center gap-6">
-            <AvatarUpload
-              userId={user.id}
-              userUrl={avatarUrl}
-              username={username}
-            />
-
-            <div>
-              {/* Added Staggered Text and Custom Cursor Logic */}
-              <button
-                className="group cursor-none w-fit mb-2"
-                data-cursor-invert="true"
-              >
-                <StaggeredText
-                  text={username}
-                  className="text-4xl font-bold text-cyan-400"
-                />
-              </button>
-
-              {/* Added Cursor Invert to the sub-text */}
-              <p
-                className="text-gray-400 text-sm flex items-center gap-2 cursor-none w-fit"
-                data-cursor-invert="true"
-              >
-                <Rocket size={14} className="text-cyan-500 animate-pulse" />
-                User Status: Active
-              </p>
-              <p
-                className="text-gray-500 text-xs mt-1 font-mono uppercase cursor-none w-fit"
-                data-cursor-invert="true"
-              >
-                ID: {user.id.slice(0, 8)}...
-              </p>
-            </div>
+      <div className="bg-gradient-to-b from-gray-900 to-black border-b border-gray-800 pb-12 pt-20 px-4">
+        <div className="container mx-auto max-w-6xl">
+          {/* NEW: Back Button cleanly stacked above the profile layout */}
+          <div className="mb-8">
+            <BackButton fallback="/explore" />
           </div>
 
-          <form action={signOut}>
-            <button className="flex items-center gap-2 px-6 py-3 rounded-full border border-red-900/50 text-red-400 hover:bg-red-950/30 hover:border-red-500 transition text-sm font-bold uppercase tracking-wider cursor-none">
-              <LogOut size={16} />
-              Logout
-            </button>
-          </form>
+          <div className="flex flex-col md:flex-row items-center md:items-end justify-between gap-6">
+            <div className="flex items-center gap-6">
+              <AvatarUpload
+                userId={user.id}
+                userUrl={avatarUrl}
+                username={username}
+              />
+
+              <div>
+                {/* Added Staggered Text and Custom Cursor Logic */}
+                <button
+                  className="group cursor-none w-fit mb-2 outline-none"
+                  data-cursor-invert="true"
+                >
+                  <StaggeredText
+                    text={username}
+                    className="text-4xl font-bold text-cyan-400"
+                    hideClass="group-hover:-translate-y-full"
+                    showClass="group-hover:translate-y-0 text-white"
+                  />
+                </button>
+
+                {/* Added Cursor Invert to the sub-text */}
+                <p
+                  className="text-gray-400 text-sm flex items-center gap-2 cursor-none w-fit"
+                  data-cursor-invert="true"
+                >
+                  <Rocket size={14} className="text-cyan-500 animate-pulse" />
+                  User Status: Active
+                </p>
+                <p
+                  className="text-gray-500 text-xs mt-1 font-mono uppercase cursor-none w-fit"
+                  data-cursor-invert="true"
+                >
+                  ID: {user.id.slice(0, 8)}...
+                </p>
+              </div>
+            </div>
+
+            <form action={signOut}>
+              <button className="flex items-center gap-2 px-6 py-3 rounded-full border border-red-900/50 text-red-400 hover:bg-red-950/30 hover:border-red-500 transition text-sm font-bold uppercase tracking-wider cursor-none">
+                <LogOut size={16} />
+                Logout
+              </button>
+            </form>
+          </div>
         </div>
       </div>
 

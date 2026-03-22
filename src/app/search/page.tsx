@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import StaggeredText from "@/components/StaggeredText";
+import BackButton from "@/components/BackButton"; // NEW: Imported BackButton
 
 export default function SearchPage() {
   const searchParams = useSearchParams();
@@ -154,20 +155,27 @@ export default function SearchPage() {
   return (
     <main className="min-h-screen bg-black text-white p-4 md:p-8 cursor-none">
       {/* HEADER */}
-      <div className="max-w-7xl mx-auto mb-8">
-        {/* FIX: Scaled up the text, set base color to cyan, stagger text to white */}
+      <div className="max-w-7xl mx-auto mb-8 flex flex-col items-start w-full">
+        {/* NEW: Stacked Back Button with fallback to Explore */}
+        <div className="mb-4">
+          <BackButton fallback="/explore" />
+        </div>
+
         <h1
           className="group/title outline-none cursor-none text-4xl md:text-5xl font-extrabold mb-8 w-fit flex tracking-tight text-cyan-400 drop-shadow-lg"
           data-cursor-invert="true"
         >
-          <StaggeredText
-            text="Deep Space Search"
-            hideClass="group-hover/title:-translate-y-full"
-            showClass="group-hover/title:translate-y-0 text-white"
-          />
+          <button>
+            <StaggeredText
+              text="Deep Space Search"
+              hideClass="group-hover/title:-translate-y-full"
+              showClass="group-hover/title:translate-y-0 text-white"
+            />
+          </button>
         </h1>
 
-        <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-gray-900 p-4 rounded-2xl border border-gray-800">
+        {/* Make the search bar container w-full so it spans nicely under the title */}
+        <div className="w-full flex flex-col md:flex-row gap-4 items-center justify-between bg-gray-900 p-4 rounded-2xl border border-gray-800">
           <form onSubmit={handleSearch} className="relative w-full md:w-1/2">
             <Search
               className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
@@ -177,7 +185,6 @@ export default function SearchPage() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              // FIX: focus:ring is now cyan
               className="w-full bg-black border border-gray-700 rounded-full py-3 pl-12 pr-4 focus:ring-2 focus:ring-cyan-500 outline-none transition cursor-none"
               placeholder="Search the cosmos..."
             />
@@ -189,7 +196,6 @@ export default function SearchPage() {
               <button
                 key={type}
                 onClick={() => toggleFilter(type)}
-                // FIX: Filters now use cyan instead of blue
                 className={`px-4 py-2 rounded-full text-sm font-bold uppercase transition outline-none cursor-none ${
                   filters[type]
                     ? "bg-cyan-600 text-white shadow-lg shadow-cyan-900/50"
@@ -216,7 +222,6 @@ export default function SearchPage() {
         {/* Loading */}
         {loading && results.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-gray-500 animate-pulse">
-            {/* FIX: Spinner is now cyan */}
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-500 mb-4"></div>
             <p>Scanning the archives...</p>
           </div>
@@ -235,7 +240,6 @@ export default function SearchPage() {
         {!query.trim() && (
           <div className="flex flex-col items-center justify-center py-20 text-gray-500">
             <div className="bg-gray-900 p-6 rounded-full mb-4">
-              {/* FIX: Telescope is now cyan */}
               <Telescope size={48} className="text-cyan-500 opacity-50" />
             </div>
             <h2 className="text-xl font-bold text-gray-300 mb-2">

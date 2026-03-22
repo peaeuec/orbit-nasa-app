@@ -1,144 +1,203 @@
-import { normalizeLibraryItem } from './nasa-cleaners';
-import { SpacePost, ExploreSection, ExplorePageData } from './types';
-import { getBulkLikeCounts } from './db'; 
+import { normalizeLibraryItem } from "./nasa-cleaners";
+import { SpacePost, ExploreSection, ExplorePageData } from "./types";
+import { getBulkLikeCounts } from "./db";
 
-const BASE_URL = 'https://images-api.nasa.gov/search';
+const BASE_URL = "https://images-api.nasa.gov/search";
 
 /* -------------------------------------------------------
-   DETERMINISTIC RANDOM NUMBER GENERATOR (PRNG)
-   This ensures the "Random" picks stay the same for 24 hours.
+   DETERMINISTIC RNG (4-HOUR CYCLES)
+   This ensures the feed cycles new content throughout the day
+   but remains perfectly stable while the user is browsing.
 ------------------------------------------------------- */
-
-// 1. Generate a numeric seed from today's date (e.g., 20231025)
-function getDailySeed(): number {
+function getTimeBasedSeed(): number {
   const now = new Date();
+  const chunkedHour = Math.floor(now.getHours() / 4) * 4;
   const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return parseInt(`${year}${month}${day}`);
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return parseInt(`${year}${month}${day}${chunkedHour}`);
 }
 
-// 2. Simple Mulberry32 PRNG
-// Returns a function that generates numbers between 0 and 1
 function createSeededRandom(seed: number) {
-  return function() {
-    let t = seed += 0x6D2B79F5;
+  return function () {
+    let t = (seed += 0x6d2b79f5);
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
 
-// 3. Global PRNG instance for this request
-const TODAY_SEED = getDailySeed();
-let rng = createSeededRandom(TODAY_SEED);
-
-// Helper to reset RNG (optional, but good for consistency across requests)
-function resetRng() {
-  rng = createSeededRandom(TODAY_SEED);
+// Helper to pick multiple distinct items from an array
+function pickMultiple(
+  arr: string[],
+  count: number,
+  rng: () => number,
+): string[] {
+  const shuffled = [...arr].sort(() => 0.5 - rng());
+  return shuffled.slice(0, count);
 }
 
 /* -------------------------------------------------------
-   RANDOM HELPERS (Updated to use Seeding)
+   SEARCH TERM POOLS (Massively Expanded)
 ------------------------------------------------------- */
-function randomInt(min: number, max: number) {
-  // Use our 'rng()' instead of Math.random()
-  return Math.floor(rng() * (max - min + 1)) + min;
-}
+const TERM_POOLS = {
+  // Broad, highly-active terms to yield hundreds of recent results
+  trending: [
+    "Artemis launch",
+    "SpaceX Crew Dragon",
+    "James Webb Space Telescope",
+    "JWST deep field",
+    "Perseverance rover",
+    "Commercial Crew",
+    "Spacewalk",
+    "OSIRIS-REx Bennu",
+    "DART mission",
+    "Europa Clipper",
+    "Psyche mission",
+    "Lucy spacecraft",
+    "SLS rocket",
+    "Orion capsule",
+    "Ingenuity helicopter",
+    "Hubble Space Telescope",
+    "Astronaut training",
+  ],
+  // Majestic orbital shots, topological features, and moons
+  mars: [
+    "Mars surface",
+    "Mars orbit",
+    "Olympus Mons",
+    "Valles Marineris",
+    "Gale Crater",
+    "Martian dunes",
+    "MRO HiRISE",
+    "Mars ice cap",
+    "Phobos moon",
+    "Deimos moon",
+    "Noctis Labyrinthus",
+    "Mars dust storm",
+    "Hellas Planitia",
+    "Mars crater",
+    "Mars horizon",
+  ],
+  // Specific Earth phenomena shot from the ISS or high-orbit satellites
+  earth: [
+    "International Space Station",
+    "Earth from space night",
+    "Earth aurora borealis",
+    "hurricane from space",
+    "city lights space",
+    "Earth limb",
+    "ISS Cupola",
+    "volcano from space",
+    "glacier from space",
+    "Earth sunrise space",
+    "Himalayas from space",
+    "Nile river space",
+    "Earth clouds space",
+    "ocean from space",
+    "astronaut Earth background",
+  ],
+  // The absolute greatest hits of deep space astronomy
+  classics: [
+    "Nebula",
+    "Galaxy cluster",
+    "Supernova remnant",
+    "Star formation",
+    "Black hole",
+    "Pillars of Creation",
+    "Carina Nebula",
+    "Orion Nebula",
+    "Crab Nebula",
+    "Andromeda Galaxy",
+    "Sombrero Galaxy",
+    "Whirlpool Galaxy",
+    "Eagle Nebula",
+    "Horsehead Nebula",
+    "Tarantula Nebula",
+    "Ring Nebula",
+    "Interacting galaxies",
+    "Quasar",
+    "Pulsar",
+    "Globular cluster",
+  ],
+  // Gritty, boots-on-the-ground robotics and surface geology
+  rover: [
+    "Curiosity rover surface",
+    "Perseverance landscape",
+    "Mars surface rocks",
+    "Jezero crater",
+    "Opportunity rover",
+    "Spirit rover",
+    "Mars rover selfie",
+    "Mars tracks",
+    "Martian soil",
+    "Mars rock core",
+    "Mastcam",
+    "Hazcam",
+  ],
+};
 
-function pickMultiple(arr: string[], count = 2): string {
-  // Deterministic shuffle
-  const shuffled = [...arr].sort(() => 0.5 - rng());
-  return shuffled.slice(0, count).join(' ');
-}
+const HARD_FALLBACKS: Record<keyof typeof TERM_POOLS, string> = {
+  trending: "Space Station",
+  mars: "Mars",
+  earth: "Earth",
+  classics: "Galaxy",
+  rover: "Mars surface",
+};
 
-function randomYearRange() {
-  const start = randomInt(1996, 2018);
+/* -------------------------------------------------------
+   SYNCHRONOUS CONFIG GENERATOR
+------------------------------------------------------- */
+function generateLaneConfigs() {
+  const seed = getTimeBasedSeed();
+  const rng = createSeededRandom(seed);
+
+  const currentYear = new Date().getFullYear();
+
   return {
-    year_start: start,
-    year_end: Math.min(start + randomInt(3, 8), 2026)
+    seed,
+    trending: {
+      // Pick 3 random trending terms
+      terms: pickMultiple(TERM_POOLS.trending, 3, rng),
+      year_start: String(currentYear - 2), // 2022+ for recent news
+    },
+    mars: {
+      // Pick 3 random mars orbital terms
+      terms: pickMultiple(TERM_POOLS.mars, 3, rng),
+      year_start: undefined, // Drop date limits for better quality
+    },
+    earth: {
+      // Pick 3 random earth terms
+      terms: pickMultiple(TERM_POOLS.earth, 3, rng),
+      year_start: "2010",
+    },
+    classics: {
+      // Pick 4 random deep space terms
+      terms: pickMultiple(TERM_POOLS.classics, 4, rng),
+      year_start: undefined,
+    },
+    rover: {
+      // Pick 2 random rover terms
+      terms: pickMultiple(TERM_POOLS.rover, 2, rng),
+    },
   };
 }
 
 /* -------------------------------------------------------
-   SEARCH TERM POOLS
-------------------------------------------------------- */
-const TERM_POOLS = {
-  trending: [
-    'James Webb Space Telescope',
-    'JWST deep field',
-    'JWST galaxy',
-    'NASA space telescope',
-    'infrared universe'
-  ],
-  mars: [
-    'Mars surface',
-    'Mars rover',
-    'Perseverance rover',
-    'Curiosity rover'
-  ],
-  earth: [
-    'International Space Station',
-    'Earth from space',
-    'ISS Earth view',
-    'astronaut photography'
-  ],
-  classics: [
-    'Nebula',
-    'Galaxy',
-    'Supernova',
-    'Star formation',
-    'Milky Way'
-  ]
-};
-
-const HARD_FALLBACKS: Record<keyof typeof TERM_POOLS, string> = {
-  trending: 'James Webb Space Telescope',
-  mars: 'Mars',
-  earth: 'Earth from space',
-  classics: 'Nebula'
-};
-
-/* -------------------------------------------------------
-   SEED GENERATION
-------------------------------------------------------- */
-function generateSeed() {
-  // Reset RNG at start of generation to ensure 100% consistent lane order
-  resetRng();
-  
-  const lanes: any = {};
-
-  (Object.keys(TERM_POOLS) as Array<keyof typeof TERM_POOLS>).forEach(
-    (laneId) => {
-      const years = randomYearRange();
-      lanes[laneId] = {
-        q: pickMultiple(TERM_POOLS[laneId], 2),
-        page: randomInt(1, 6),
-        year_start: years.year_start,
-        year_end: years.year_end
-      };
-    }
-  );
-
-  return { date: String(TODAY_SEED), lanes };
-}
-
-/* -------------------------------------------------------
-   LOW-LEVEL FETCH
+   LOW-LEVEL FETCH (NASA Images API)
 ------------------------------------------------------- */
 async function tryFetch(
   params: Record<string, string>,
-  limit: number
+  limit: number,
 ): Promise<SpacePost[]> {
   const urlParams = new URLSearchParams({
     ...params,
-    page_size: '30'
+    page_size: "50",
   });
 
   try {
-    // We still keep the cache tag, just in case
     const res = await fetch(`${BASE_URL}?${urlParams.toString()}`, {
-      next: { revalidate: 3600 } // Cache for 1 hour is fine now
+      next: { revalidate: 3600 },
     });
 
     if (!res.ok) return [];
@@ -156,115 +215,128 @@ async function tryFetch(
 }
 
 /* -------------------------------------------------------
-   LANE FETCHER
+   THE NEW "SCATTER & SHUFFLE" FETCHER
 ------------------------------------------------------- */
-async function fetchLaneItems(
-  laneId: keyof typeof TERM_POOLS,
-  limit = 10
+async function fetchScatteredLane(
+  config: any,
+  fallbackKey: keyof typeof HARD_FALLBACKS,
+  totalLimit: number,
+  isRover: boolean = false,
 ): Promise<SpacePost[]> {
-  // Generate the deterministic seed
-  const seedData = generateSeed(); 
-  const seed = seedData.lanes[laneId];
+  // Calculate how many items we need per term (e.g., 20 items / 4 terms = 5 items each)
+  // We add +3 as a buffer in case some items get filtered out
+  const perTermLimit = Math.ceil(totalLimit / config.terms.length) + 3;
 
-  // 1️⃣ Seeded attempt
-  let items = await tryFetch(
-    {
-      q: seed.q,
-      media_type: 'image',
-      page: String(seed.page),
-      year_start: String(seed.year_start),
-      year_end: String(seed.year_end)
-    },
-    limit
+  // 1️⃣ Scatter: Fire off concurrent requests for EVERY term in the config array
+  const fetchPromises = config.terms.map((term: string) => {
+    const params: any = { q: term, media_type: "image" };
+    if (config.year_start) params.year_start = config.year_start;
+    if (config.year_end) params.year_end = config.year_end;
+
+    return tryFetch(params, perTermLimit);
+  });
+
+  const results = await Promise.all(fetchPromises);
+
+  // 2️⃣ Merge: Flatten the array of arrays into one massive pool of posts
+  let combinedItems = results.flat();
+
+  // 3️⃣ Deduplicate: Ensure no repeated images if two terms yielded the same photo
+  const uniqueItems = Array.from(
+    new Map(combinedItems.map((item) => [item.id, item])).values(),
   );
-  if (items.length) return items;
 
-  // 2️⃣ Retry page 1
-  items = await tryFetch(
-    { q: seed.q, media_type: 'image', page: '1' },
-    limit
-  );
-  if (items.length) return items;
+  // Fallback if the strict date limits killed the fetch completely
+  if (uniqueItems.length < Math.floor(totalLimit / 2)) {
+    const fallbackItems = await tryFetch(
+      { q: HARD_FALLBACKS[fallbackKey], media_type: "image" },
+      totalLimit,
+    );
+    uniqueItems.push(...fallbackItems);
+  }
 
-  // 3️⃣ Hard Fallback
-  return await tryFetch(
-    { q: HARD_FALLBACKS[laneId], media_type: 'image' },
-    limit
-  );
-}
+  // 4️⃣ Shuffle: Use our daily seed so the shuffled order stays stable for 4 hours
+  const shuffleRng = createSeededRandom(getTimeBasedSeed());
+  let finalMix = uniqueItems.sort(() => 0.5 - shuffleRng());
 
-/* -------------------------------------------------------
-   LANE BUILDERS
-------------------------------------------------------- */
-async function getTrendingLane(): Promise<ExploreSection> {
-  const items = await fetchLaneItems('trending', 10);
-  return {
-    id: 'trending',
-    title: 'Mission Control',
-    subtitle: 'Daily highlights from space exploration.',
-    layout: 'row',
-    items
-  };
-}
+  // If these are rover photos, prepend the robot emoji
+  if (isRover) {
+    finalMix = finalMix.map((item) => ({ ...item, title: `🤖 ${item.title}` }));
+  }
 
-async function getMarsLane(): Promise<ExploreSection> {
-  const items = await fetchLaneItems('mars', 8);
-  return {
-    id: 'mars',
-    title: 'The Red Planet',
-    subtitle: 'Mars and the machines exploring it.',
-    layout: 'grid',
-    items
-  };
-}
-
-async function getEarthLane(): Promise<ExploreSection> {
-  const items = await fetchLaneItems('earth', 6);
-  return {
-    id: 'earth',
-    title: 'Earth Orbit',
-    subtitle: 'Our planet from low Earth orbit.',
-    layout: 'row',
-    items
-  };
-}
-
-async function getClassicsLane(): Promise<ExploreSection> {
-  const items = await fetchLaneItems('classics', 12);
-  return {
-    id: 'classics',
-    title: 'Cosmic Wonders',
-    subtitle: 'Timeless views of the universe.',
-    layout: 'grid',
-    items
-  };
+  // 5️⃣ Slice to the exact requested limit
+  return finalMix.slice(0, totalLimit);
 }
 
 /* -------------------------------------------------------
    MAIN AGGREGATOR
 ------------------------------------------------------- */
 export async function getExplorePageData(): Promise<ExplorePageData> {
-  const [trending, mars, earth, classics] = await Promise.all([
-    getTrendingLane(),
-    getMarsLane(),
-    getEarthLane(),
-    getClassicsLane()
-  ]);
+  const configs = generateLaneConfigs();
+
+  // Fire all "Scatter & Shuffle" fetches concurrently
+  const [trendingItems, marsLibrary, marsRover, earthItems, classicsItems] =
+    await Promise.all([
+      fetchScatteredLane(configs.trending, "trending", 20),
+      fetchScatteredLane(configs.mars, "mars", 16),
+      fetchScatteredLane(configs.rover, "rover", 16, true), // isRover = true
+      fetchScatteredLane(configs.earth, "earth", 20),
+      fetchScatteredLane(configs.classics, "classics", 36),
+    ]);
+
+  // Merge the orbital Mars photos with the surface Rover photos and shuffle one last time
+  const marsRng = createSeededRandom(configs.seed);
+  const combinedMars = [...marsLibrary, ...marsRover].sort(
+    () => 0.5 - marsRng(),
+  );
+
+  // Build the layout sections
+  const trending: ExploreSection = {
+    id: "trending",
+    title: "Mission Control",
+    subtitle: "Recent highlights from deep space exploration.",
+    layout: "row",
+    items: trendingItems,
+  };
+
+  const mars: ExploreSection = {
+    id: "mars",
+    title: "The Red Planet",
+    subtitle: "Orbital imagery combined with raw Curiosity rover surface data.",
+    layout: "grid",
+    items: combinedMars,
+  };
+
+  const earth: ExploreSection = {
+    id: "earth",
+    title: "Earth Orbit",
+    subtitle: "Our planet viewed from low Earth orbit.",
+    layout: "row",
+    items: earthItems,
+  };
+
+  const classics: ExploreSection = {
+    id: "classics",
+    title: "Cosmic Wonders",
+    subtitle: "Timeless views of nebulas and distant galaxies.",
+    layout: "grid",
+    items: classicsItems,
+  };
 
   const allItems = [
     ...trending.items,
     ...mars.items,
     ...earth.items,
-    ...classics.items
+    ...classics.items,
   ];
-  const allIds = allItems.map(item => item.id);
 
+  const allIds = allItems.map((item) => item.id);
   const likeCounts = await getBulkLikeCounts(allIds);
 
   const enrich = (section: ExploreSection) => {
-    section.items = section.items.map(item => ({
+    section.items = section.items.map((item) => ({
       ...item,
-      likes: likeCounts[item.id] || 0
+      likes: likeCounts[item.id] || 0,
     }));
   };
 
@@ -275,6 +347,6 @@ export async function getExplorePageData(): Promise<ExplorePageData> {
 
   return {
     hero: trending.items[0] || mars.items[0],
-    sections: [trending, mars, earth, classics]
+    sections: [trending, mars, earth, classics],
   };
 }

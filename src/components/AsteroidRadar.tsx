@@ -248,8 +248,6 @@ const SmoothTicker = forwardRef(
     });
 
     return (
-      // FIX: Massive vertical padding (py-8 -my-4) and completely removed overflow-hidden.
-      // This allows the cards to scale up by 1.05 without EVER getting clipped by their container boundaries!
       <div
         className="relative w-full py-8 -my-4 z-10"
         style={{
@@ -289,15 +287,30 @@ export default function AsteroidRadar({ data }: AsteroidRadarProps) {
     offset: ["start end", "end start"],
   });
 
-  const rawX = useTransform(
+  // FIX: Swapped the X translation for a radial clip-path sweep!
+  // It maps the scroll progress to a circle radius from 0% to 150%.
+  const rawRadius = useTransform(
     scrollYProgress,
     [0.1, 0.35, 0.65, 0.85],
-    [1200, 0, 0, -1000],
+    [0, 150, 150, 0],
   );
-  const x = useSpring(rawX, { stiffness: 60, damping: 25, mass: 1 });
+
+  // We wrap the raw radius in a spring so it "snaps" open like a real radar ping
+  // rather than rigidly following your exact scroll pixel.
+  const smoothRadius = useSpring(rawRadius, {
+    stiffness: 60,
+    damping: 20,
+    mass: 1,
+  });
+  const clipPath = useTransform(
+    smoothRadius,
+    (r) => `circle(${r}% at 50% 50%)`,
+  );
+
+  // Opacity fades in slightly ahead of the sweep to soften the edges
   const opacity = useTransform(
     scrollYProgress,
-    [0.1, 0.25, 0.75, 0.9],
+    [0.05, 0.15, 0.85, 0.95],
     [0, 1, 1, 0],
   );
 
@@ -308,7 +321,7 @@ export default function AsteroidRadar({ data }: AsteroidRadarProps) {
 
   return (
     <div className="relative w-full mt-40 mb-10">
-      <div ref={scrollContainerRef} className="relative w-full h-[250vh]">
+      <div ref={scrollContainerRef} className="relative w-full h-[150vh]">
         <div className="sticky top-0 w-full h-screen flex flex-col justify-center py-10">
           <style>{`
             @keyframes border-spin {
@@ -320,7 +333,8 @@ export default function AsteroidRadar({ data }: AsteroidRadarProps) {
           `}</style>
 
           <motion.div
-            style={{ x, opacity }}
+            // FIX: Applied the clipPath here instead of `x`
+            style={{ clipPath, opacity }}
             className={`group/card relative w-full p-[2px] rounded-[2rem] overflow-hidden transition-all duration-700 ease-out hover:-translate-y-2 hover:scale-[1.005] ${
               isDanger
                 ? "hover:shadow-[0_40px_80px_-15px_rgba(220,38,38,0.3)]"
@@ -373,7 +387,6 @@ export default function AsteroidRadar({ data }: AsteroidRadarProps) {
               </p>
 
               {/* --- SUB-HEADER: API INFO & NAVIGATION ARROWS --- */}
-              {/* Relocated arrows to sit beautifully parallel to the API tooltip text */}
               <div className="flex items-center justify-between mb-4 z-20">
                 {/* Left side: Tooltip */}
                 <div className="flex items-center gap-2">
@@ -414,8 +427,8 @@ export default function AsteroidRadar({ data }: AsteroidRadarProps) {
                         </strong>{" "}
                         means it's large and its orbit comes relatively close to
                         Earth. It{" "}
-                        <strong className="text-white">does not</strong> mean a
-                        collision is expected.
+                        <strong className="text-green-400">does not</strong>{" "}
+                        mean a collision is expected.
                       </p>
                       <div className="absolute bottom-full left-1/2 md:left-auto md:right-[24px] -translate-x-1/2 md:translate-x-0 -mb-[1px] border-[6px] border-transparent border-b-gray-700"></div>
                     </div>
@@ -423,7 +436,6 @@ export default function AsteroidRadar({ data }: AsteroidRadarProps) {
                 </div>
 
                 {/* Right side: Large, Thin Navigation Arrows */}
-                {/* opacity-0 -> 100 on hover creates the reveal effect without cluttering the UI */}
                 <div className="flex items-center gap-3 opacity-0 group-hover/card:opacity-100 transition-opacity duration-500">
                   <button
                     onClick={() => tickerRef.current?.scrollLeft()}

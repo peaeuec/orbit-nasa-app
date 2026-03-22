@@ -1,28 +1,27 @@
-// src/lib/types.ts
-
-// 1. The Unified Post (Existing)
+// 1. The Unified Post
 export interface SpacePost {
   id: string;
   title: string;
   description: string;
   imageUrl: string;
+  highResUrl?: string; // NEW: The uncompressed original image link
   date: string;
-  source: 'APOD' | 'NASA_LIB' | 'MARS';
-  mediaType: 'image' | 'video' | 'audio';
-  likes: number; // Ensure this exists for public counts
+  source: "APOD" | "NASA_LIB" | "MARS";
+  mediaType: "image" | "video" | "audio";
+  likes: number;
 }
 
-// 2. The Story (Existing)
+// 2. The Story
 export interface Story {
   id: string;
-  type: 'HAZARD' | 'EARTH' | 'WEATHER';
+  type: "HAZARD" | "EARTH" | "WEATHER";
   thumbnailUrl: string;
-  statusColor: 'green' | 'red' | 'blue';
+  statusColor: "green" | "red" | "blue";
   text: string;
 }
 
-// 3. NEW: Section Definitions
-export type SectionLayout = 'grid' | 'row' | 'featured';
+// 3. Section Definitions
+export type SectionLayout = "grid" | "row" | "featured";
 
 export interface ExploreSection {
   id: string;

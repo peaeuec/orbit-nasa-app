@@ -2,10 +2,41 @@
 
 import { useState, useEffect } from "react";
 import { SpacePost } from "@/lib/types";
-import { X, Maximize2, Minimize2, ArrowRight, BookOpen } from "lucide-react";
+import {
+  X,
+  Maximize2,
+  Minimize2,
+  ArrowRight,
+  BookOpen,
+  PlayCircle,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import StaggeredText from "@/components/StaggeredText";
 import { toggleNativeFullscreen } from "@/utils/fullscreen";
+
+/* ---------------- VIDEO URL HELPERS ---------------- */
+const getHeroVideoUrl = (url: string) => {
+  try {
+    const u = new URL(url);
+    u.searchParams.set("autoplay", "1");
+    u.searchParams.set("mute", "1");
+    u.searchParams.set("controls", "0");
+    return u.toString();
+  } catch {
+    return url;
+  }
+};
+
+const getModalVideoUrl = (url: string) => {
+  try {
+    const u = new URL(url);
+    u.searchParams.set("autoplay", "1");
+    return u.toString();
+  } catch {
+    return url;
+  }
+};
+/* ------------------------------------------------ */
 
 /* ---------------- TYPEWRITER HOOK ---------------- */
 function useTypewriter(text: string, speed = 38) {
@@ -54,7 +85,7 @@ function DateRoll({
   date,
   startDelay = 0,
 }: {
-  date: string; // YYYY-MM-DD
+  date: string;
   startDelay?: number;
 }) {
   const [year, month, day] = date.split("-");
@@ -160,7 +191,18 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
   const typedTitle = useTypewriter("Astronomy Picture of the Day");
   const dateStartDelay = 38 * "Astronomy Picture of the Day".length + 150;
 
-  // Locks the body scroll when the modal is open
+  // --- NEW: ADVANCED MEDIA DETECTION ---
+  const isNativeVideo =
+    hero?.mediaType === "video" &&
+    (hero.imageUrl.toLowerCase().endsWith(".mp4") ||
+      hero.imageUrl.toLowerCase().endsWith(".webm"));
+
+  const isEmbeddableVideo =
+    hero?.mediaType === "video" &&
+    (hero.imageUrl.includes("youtube.com") ||
+      hero.imageUrl.includes("youtu.be") ||
+      hero.imageUrl.includes("vimeo.com"));
+
   useEffect(() => {
     if (isOpen) {
       document.documentElement.style.overflow = "hidden";
@@ -168,7 +210,7 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
     } else {
       document.documentElement.style.overflow = "";
       document.body.style.overflow = "";
-      setIsZoomed(false); // Reset zoom when modal closes
+      setIsZoomed(false);
     }
     return () => {
       document.documentElement.style.overflow = "";
@@ -176,19 +218,17 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
     };
   }, [isOpen]);
 
-  // Master listener to track native fullscreen state globally
   useEffect(() => {
     const handleFullscreenChange = () => {
       const isFull = !!document.fullscreenElement;
       setIsFullscreen(isFull);
-      if (!isFull) setIsZoomed(false); // Ensure zoom resets if they press 'ESC'
+      if (!isFull) setIsZoomed(false);
     };
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () =>
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
-  // Calculates the exact pixel the user is hovering over to use as the zoom anchor
   const handleZoomMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!isZoomed) return;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -207,7 +247,6 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
       `}</style>
 
       <div className="w-full mb-12">
-        {/* HEADER */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2 pb-2 ml-2 mr-2 animate-soft-fade">
           <div className="flex items-center gap-3">
             <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse shrink-0" />
@@ -244,19 +283,17 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
           transition={{ duration: 0.9, ease: "easeOut" }}
           data-cursor-image="true"
           className="relative group rounded-3xl overflow-hidden border border-gray-800 bg-gray-900 shadow-2xl hover:shadow-[0_20px_40px_-15px_rgba(6,182,212,0.15)] hover:border-cyan-900/50 transition-all duration-500 cursor-none flex flex-col justify-end"
-          // We only trigger the modal if it's NOT fullscreened
           onClick={() => {
             if (!isFullscreen) setIsOpen(true);
           }}
         >
-          {/* FIX 1: Added group/wrapper so the button inside still detects hover during fullscreen. Also injected centering logic dynamically. */}
           <div
             className={`relative w-full overflow-hidden transition-colors duration-300 group/wrapper ${isFullscreen ? "h-screen bg-black flex items-center justify-center" : ""}`}
             id="hero-media-wrapper"
             onMouseMove={isFullscreen ? handleZoomMove : undefined}
             onClick={(e) => {
               if (isFullscreen && hero.mediaType === "image") {
-                e.stopPropagation(); // Prevents it bubbling to the motion.div
+                e.stopPropagation();
                 setIsZoomed(!isZoomed);
               }
             }}
@@ -270,17 +307,45 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
             }}
           >
             {hero.mediaType === "video" ? (
-              <iframe
-                src={hero.imageUrl}
-                // Dynamic sizing guarantees it doesn't crop awkwardly
-                className={`pointer-events-none transform transition-transform duration-[2s] ease-out group-hover:scale-105 ${isFullscreen ? "w-full h-full" : "w-full aspect-video"}`}
-                title="APOD Video"
-              />
+              isNativeVideo ? (
+                // FIX: Native video tag now uses High-Res and proper object-cover
+                <video
+                  src={hero.highResUrl || hero.imageUrl}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  className={`pointer-events-none transform transition-transform duration-[2s] ease-out group-hover:scale-105 ${isFullscreen ? "w-full h-full object-contain" : "w-full aspect-video object-cover"}`}
+                />
+              ) : isEmbeddableVideo ? (
+                // Youtube/Vimeo Iframes keep the scale-125 to hide black bars
+                <iframe
+                  src={getHeroVideoUrl(hero.imageUrl)}
+                  allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+                  className={`pointer-events-none transform transition-transform duration-[2s] ease-out group-hover:scale-105 ${isFullscreen ? "w-full h-full" : "w-full aspect-video scale-125"}`}
+                  title="APOD Video"
+                />
+              ) : (
+                <div className="w-full aspect-video bg-gray-900 flex flex-col items-center justify-center text-cyan-500 border border-gray-800">
+                  <PlayCircle size={64} className="opacity-50 mb-4 z-10" />
+                  <p className="text-sm font-mono tracking-widest text-gray-400 z-10">
+                    EXTERNAL VIDEO RECORD
+                  </p>
+                  <a
+                    href={hero.imageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-4 px-6 py-2 bg-cyan-900/30 border border-cyan-800 rounded-full text-white hover:bg-cyan-800 transition pointer-events-auto z-10 cursor-pointer"
+                  >
+                    Open in New Tab
+                  </a>
+                </div>
+              )
             ) : (
+              // FIX: Image tag now uses High-Res
               <img
-                src={hero.imageUrl}
+                src={hero.highResUrl || hero.imageUrl}
                 alt={hero.title}
-                // FIX 2: Added conditional w-full h-full when full-screened so object-contain can letterbox it properly!
                 className={`object-contain transition-transform ease-out ${!isZoomed && !isFullscreen ? "duration-[2s] group-hover:scale-105" : "duration-300"} ${isFullscreen ? "w-full h-full" : "w-full h-auto"}`}
                 style={
                   isFullscreen
@@ -293,7 +358,6 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
               />
             )}
 
-            {/* Hides the black gradients when the user enters fullscreen */}
             {!isFullscreen && (
               <>
                 <div className="absolute inset-0 bg-linear-to-t from-black via-black/40 to-transparent opacity-90 pointer-events-none" />
@@ -301,13 +365,11 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
               </>
             )}
 
-            {/* FIX 3: The button is now INSIDE the wrapper! */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 toggleNativeFullscreen(e, "hero-media-wrapper");
               }}
-              // Uses both group-hover and group-hover/wrapper so it appears correctly in both views!
               className="absolute top-6 right-6 bg-black/50 backdrop-blur-md p-3 rounded-full opacity-0 group-hover:opacity-100 group-hover/wrapper:opacity-100 transition transform hover:scale-110 z-20 border-2 border-cyan-500/50 hover:border-cyan-400 hover:shadow-[0_0_15px_rgba(6,182,212,0.5)] cursor-none"
             >
               {isFullscreen ? (
@@ -363,6 +425,7 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
               className="md:w-2/3 bg-black flex items-center justify-center p-4 relative group/modal-media overflow-hidden"
               onClick={() => setIsZoomed(!isZoomed)}
               onMouseMove={handleZoomMove}
+              data-cursor-image="true"
               style={{
                 cursor:
                   hero.mediaType === "image"
@@ -373,14 +436,41 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
               }}
             >
               {hero.mediaType === "video" ? (
-                <iframe
-                  src={hero.imageUrl}
-                  className="w-full h-full aspect-video"
-                  allowFullScreen
-                />
+                isNativeVideo ? (
+                  // FIX: Modal Video tag now uses High-Res
+                  <video
+                    src={hero.highResUrl || hero.imageUrl}
+                    autoPlay
+                    controls
+                    className="w-full h-full aspect-video"
+                  />
+                ) : isEmbeddableVideo ? (
+                  <iframe
+                    src={getModalVideoUrl(hero.imageUrl)}
+                    allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+                    className="w-full h-full aspect-video"
+                    allowFullScreen
+                  />
+                ) : (
+                  <div className="w-full h-full aspect-video bg-gray-900 flex flex-col items-center justify-center text-cyan-500 border border-gray-800">
+                    <PlayCircle size={64} className="opacity-50 mb-4" />
+                    <p className="text-sm font-mono tracking-widest text-gray-400">
+                      EXTERNAL VIDEO RECORD
+                    </p>
+                    <a
+                      href={hero.imageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-4 px-6 py-2 bg-cyan-900/30 border border-cyan-800 rounded-full text-white hover:bg-cyan-800 transition pointer-events-auto cursor-pointer"
+                    >
+                      Open Video in New Tab
+                    </a>
+                  </div>
+                )
               ) : (
+                // FIX: Modal Image tag now uses High-Res
                 <img
-                  src={hero.imageUrl}
+                  src={hero.highResUrl || hero.imageUrl}
                   alt={hero.title}
                   className={`w-full h-full max-h-[90vh] object-contain transition-transform duration-300 ease-out`}
                   style={{

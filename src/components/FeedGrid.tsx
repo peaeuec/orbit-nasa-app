@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import { SpacePost } from "@/lib/types";
 import {
   X,
@@ -10,11 +11,14 @@ import {
   Loader2,
   LogIn,
   Bug,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { likePost } from "@/app/actions";
 import { motion, AnimatePresence } from "framer-motion";
 import Masonry from "react-masonry-css";
 import Link from "next/link";
+import { toggleNativeFullscreen } from "@/utils/fullscreen";
 
 const breakpointColumnsObj = {
   default: 4,
@@ -30,7 +34,7 @@ interface FeedGridProps {
 }
 
 /* =========================================================
-   INDIVIDUAL FEED CARD (Handles Ripple & Coordinates)
+   INDIVIDUAL FEED CARD
    ========================================================= */
 function FeedCard({
   post,
@@ -49,18 +53,41 @@ function FeedCard({
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const cardRef = useRef<HTMLDivElement>(null);
 
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [transformOrigin, setTransformOrigin] = useState("center center");
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      const isFull = document.fullscreenElement?.id === `grid-media-${post.id}`;
+      setIsFullscreen(isFull);
+      if (!isFull) setIsZoomed(false);
+    };
+    document.addEventListener("fullscreenchange", handleFsChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFsChange);
+  }, [post.id]);
+
   const handleMouseEnter = (e: React.MouseEvent) => {
-    if (!cardRef.current) return;
+    if (!cardRef.current || isFullscreen) return;
     const rect = cardRef.current.getBoundingClientRect();
     setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
     setIsHovered(true);
   };
 
   const handleMouseLeave = (e: React.MouseEvent) => {
-    if (!cardRef.current) return;
+    if (!cardRef.current || isFullscreen) return;
     const rect = cardRef.current.getBoundingClientRect();
     setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
     setIsHovered(false);
+  };
+
+  const handleZoomMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isZoomed || !isFullscreen) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setTransformOrigin(`${x}% ${y}%`);
   };
 
   const renderContent = (isRipple: boolean) => {
@@ -72,32 +99,101 @@ function FeedCard({
       <div
         className={`flex flex-col h-full w-full border rounded-2xl overflow-hidden transition-colors duration-300 ${bgColor} ${borderColor}`}
       >
-        <div className="relative w-full">
-          <img
-            src={post.imageUrl}
+        <div
+          id={`grid-media-${post.id}`}
+          className={`relative w-full group/media overflow-hidden ${
+            isFullscreen
+              ? "h-screen bg-black flex items-center justify-center border-none rounded-none"
+              : ""
+          }`}
+          onClick={(e) => {
+            if (isFullscreen && post.mediaType === "image") {
+              e.stopPropagation();
+              setIsZoomed(!isZoomed);
+            }
+          }}
+          onMouseMove={handleZoomMove}
+          style={{
+            cursor:
+              isFullscreen && post.mediaType === "image"
+                ? isZoomed
+                  ? "zoom-out"
+                  : "zoom-in"
+                : "auto",
+          }}
+        >
+          <Image
+            src={
+              isFullscreen && post.mediaType === "image"
+                ? post.highResUrl || post.imageUrl
+                : post.imageUrl
+            }
             alt={post.title}
-            className="w-full h-auto object-cover"
-            loading="lazy"
+            width={0}
+            height={0}
+            unoptimized={true}
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className={`pointer-events-none transition-transform ease-out ${
+              isFullscreen
+                ? "object-contain duration-300"
+                : "object-cover duration-[2s] group-hover:scale-105"
+            }`}
+            style={{
+              width: "100%",
+              height: isFullscreen ? "100%" : "auto",
+              ...(isFullscreen && {
+                transform: isZoomed ? "scale(2.5)" : "scale(1)",
+                transformOrigin: transformOrigin,
+              }),
+            }}
           />
-          {post.mediaType === "video" && (
+
+          {!isFullscreen && post.mediaType === "video" && (
             <div
-              className={`absolute inset-0 flex items-center justify-center transition ${isRipple ? "bg-black/40" : "bg-black/20"}`}
+              className={`absolute inset-0 flex items-center justify-center transition pointer-events-none ${isRipple ? "bg-black/40" : "bg-black/20"}`}
             >
               <PlayCircle
                 className={`w-12 h-12 text-white drop-shadow-lg opacity-80 transition transform ${isRipple ? "scale-110" : "scale-100"}`}
               />
             </div>
           )}
-          <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2 py-1 rounded-full flex items-center gap-1">
-            <Heart
-              size={12}
-              className={isLiked ? "fill-pink-500 text-pink-500" : "text-white"}
-            />
-            <span className="text-xs font-bold text-white">{displayLikes}</span>
-          </div>
+
+          {!isFullscreen && (
+            <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-2 py-1 rounded-full flex items-center gap-1 pointer-events-none z-10">
+              <Heart
+                size={12}
+                className={
+                  isLiked ? "fill-pink-500 text-pink-500" : "text-white"
+                }
+              />
+              <span className="text-xs font-bold text-white">
+                {displayLikes}
+              </span>
+            </div>
+          )}
+
+          {post.mediaType === "image" && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleNativeFullscreen(e, `grid-media-${post.id}`);
+              }}
+              className={`absolute top-4 right-4 bg-black/50 backdrop-blur-md p-2 rounded-full transition transform hover:scale-110 z-20 border border-gray-600 hover:border-cyan-400 hover:shadow-[0_0_15px_rgba(6,182,212,0.5)] cursor-none ${
+                isFullscreen
+                  ? "opacity-100"
+                  : "opacity-0 group-hover:opacity-100 group-hover/media:opacity-100"
+              }`}
+            >
+              {isFullscreen ? (
+                <Minimize2 className="text-white w-4 h-4" />
+              ) : (
+                <Maximize2 className="text-white w-4 h-4" />
+              )}
+            </button>
+          )}
         </div>
 
-        <div className="p-5 flex-1 flex flex-col justify-between">
+        <div className="p-5 flex-1 flex flex-col justify-between pointer-events-none">
           <div>
             <h3
               className={`font-bold text-lg leading-tight mb-2 transition-colors ${titleColor}`}
@@ -120,24 +216,23 @@ function FeedCard({
       initial={{ opacity: 0, y: 50 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "100px" }}
-      transition={{ duration: 0.5, delay: index * 0.05 }}
+      transition={{ duration: 0.5, delay: (index % 10) * 0.05 }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       data-cursor-image="true"
       className="relative group mb-8 break-inside-avoid cursor-none rounded-2xl overflow-hidden shrink-0"
     >
-      {/* 1. DEFAULT BOTTOM LAYER */}
       {renderContent(false)}
-
-      {/* 2. HOVER TOP LAYER (Clipped by Ripple) */}
-      <div
-        className="absolute inset-0 z-10 pointer-events-none transition-[clip-path] duration-500 ease-out"
-        style={{
-          clipPath: `circle(${isHovered ? 150 : 0}% at ${mousePos.x}px ${mousePos.y}px)`,
-        }}
-      >
-        {renderContent(true)}
-      </div>
+      {!isFullscreen && (
+        <div
+          className="absolute inset-0 z-10 pointer-events-none transition-[clip-path] duration-500 ease-out"
+          style={{
+            clipPath: `circle(${isHovered ? 150 : 0}% at ${mousePos.x}px ${mousePos.y}px)`,
+          }}
+        >
+          {renderContent(true)}
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -154,11 +249,27 @@ export default function FeedGrid({
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [loadingVideo, setLoadingVideo] = useState(false);
 
+  const [isModalFullscreen, setIsModalFullscreen] = useState(false);
+  const [isModalZoomed, setIsModalZoomed] = useState(false);
+  const [modalTransformOrigin, setModalTransformOrigin] =
+    useState("center center");
+
   const [likedPosts, setLikedPosts] = useState<Set<string>>(
     new Set(initialLikes),
   );
   const [likeDeltas, setLikeDeltas] = useState<Record<string, number>>({});
   const [showLogin, setShowLogin] = useState(false);
+
+  // --- NEW: THE FROZEN BASE COUNTS REFUGE ---
+  // This securely caches the server's initial counts so revalidations don't break our math
+  const baseCountsRef = useRef<Record<string, number>>({});
+  if (posts) {
+    posts.forEach((post) => {
+      if (baseCountsRef.current[post.id] === undefined) {
+        baseCountsRef.current[post.id] = post.likes || 0;
+      }
+    });
+  }
 
   // --- SCROLL LOCKING ---
   useEffect(() => {
@@ -168,12 +279,33 @@ export default function FeedGrid({
     } else {
       document.documentElement.style.overflow = "";
       document.body.style.overflow = "";
+      setIsModalZoomed(false);
     }
     return () => {
       document.documentElement.style.overflow = "";
       document.body.style.overflow = "";
     };
   }, [selectedPost, showLogin]);
+
+  // --- MODAL NATIVE FULLSCREEN LISTENER ---
+  useEffect(() => {
+    const handleFsChange = () => {
+      const isFull = document.fullscreenElement?.id === "grid-modal-media";
+      setIsModalFullscreen(isFull);
+      if (!isFull) setIsModalZoomed(false);
+    };
+    document.addEventListener("fullscreenchange", handleFsChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFsChange);
+  }, []);
+
+  const handleModalZoomMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isModalZoomed || !isModalFullscreen) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setModalTransformOrigin(`${x}% ${y}%`);
+  };
 
   // --- VIDEO FETCH LOGIC ---
   useEffect(() => {
@@ -225,13 +357,13 @@ export default function FeedGrid({
     await likePost(id);
   };
 
+  // --- FIX: UPDATED MATH LOGIC ---
   const getDisplayLikes = (post: SpacePost) => {
+    const baseCount = baseCountsRef.current[post.id] ?? (post.likes || 0);
     const delta = likeDeltas[post.id] || 0;
-    const baseCount = post.likes || 0;
     return Math.max(0, baseCount + delta);
   };
 
-  // --- ULTIMATE NASA DATA PARSER ---
   const parseDescription = (text: string) => {
     if (!text) return "No description available.";
 
@@ -292,7 +424,7 @@ export default function FeedGrid({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 cursor-auto"
+            className="fixed inset-0 z-150 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 cursor-auto"
             onClick={() => setShowLogin(false)}
           >
             <motion.div
@@ -333,7 +465,7 @@ export default function FeedGrid({
       {/* --- FULL SCREEN POST MODAL --- */}
       {selectedPost && (
         <div
-          className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 cursor-auto"
+          className="fixed inset-0 z-100 bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 cursor-auto"
           onWheel={(e) => e.stopPropagation()}
         >
           <button
@@ -344,8 +476,25 @@ export default function FeedGrid({
           </button>
 
           <div className="bg-gray-900 border border-gray-800 rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl relative">
-            {/* Media (60%) */}
-            <div className="md:w-[60%] bg-black flex items-center justify-center p-2 relative">
+            <div
+              id="grid-modal-media"
+              className="md:w-[60%] bg-black flex items-center justify-center p-2 relative group/modal-media overflow-hidden"
+              onClick={() => {
+                if (isModalFullscreen && selectedPost.mediaType === "image") {
+                  setIsModalZoomed(!isModalZoomed);
+                }
+              }}
+              onMouseMove={handleModalZoomMove}
+              data-cursor-image="true"
+              style={{
+                cursor:
+                  isModalFullscreen && selectedPost.mediaType === "image"
+                    ? isModalZoomed
+                      ? "zoom-out"
+                      : "zoom-in"
+                    : "auto",
+              }}
+            >
               {selectedPost.mediaType === "video" ? (
                 loadingVideo ? (
                   <div className="flex flex-col items-center gap-2 text-cyan-400">
@@ -365,16 +514,43 @@ export default function FeedGrid({
                   <p className="text-red-500 font-mono">VIDEO SIGNAL LOST</p>
                 )
               ) : (
-                <img
-                  src={selectedPost.imageUrl}
+                <Image
+                  src={selectedPost.highResUrl || selectedPost.imageUrl}
                   alt={selectedPost.title}
-                  className="max-h-[85vh] max-w-full object-contain"
+                  width={0}
+                  height={0}
+                  unoptimized={true}
+                  sizes="(max-width: 1200px) 100vw, 60vw"
+                  className="object-contain transition-transform duration-300 ease-out pointer-events-none"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    maxHeight: "85vh",
+                    transform: isModalZoomed ? "scale(2.5)" : "scale(1)",
+                    transformOrigin: modalTransformOrigin,
+                  }}
                 />
               )}
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleNativeFullscreen(e, "grid-modal-media");
+                }}
+                className="absolute top-6 right-6 bg-black/50 backdrop-blur-md p-3 rounded-full opacity-0 group-hover/modal-media:opacity-100 transition transform hover:scale-110 z-20 border border-gray-600 hover:border-cyan-400 hover:shadow-[0_0_15px_rgba(6,182,212,0.5)] cursor-none"
+              >
+                {isModalFullscreen ? (
+                  <Minimize2 className="text-white w-5 h-5" />
+                ) : (
+                  <Maximize2 className="text-white w-5 h-5" />
+                )}
+              </button>
             </div>
 
-            {/* Details (40%) */}
-            <div className="md:w-[40%] p-6 md:p-8 flex flex-col border-l border-gray-800 bg-gray-900">
+            <div
+              className="md:w-[40%] p-6 md:p-8 flex flex-col border-l border-gray-800 bg-gray-900"
+              data-lenis-prevent
+            >
               <div className="mb-6 flex items-center justify-between">
                 <span className="text-cyan-400 text-xs font-mono uppercase tracking-widest border border-cyan-900 px-2 py-1 rounded">
                   {selectedPost.date}
@@ -398,10 +574,7 @@ export default function FeedGrid({
                 {selectedPost.title}
               </h2>
 
-              <div
-                className="flex-1 overflow-y-auto overflow-x-hidden pr-4 mb-6 custom-scrollbar"
-                data-lenis-prevent
-              >
+              <div className="flex-1 overflow-y-auto overflow-x-hidden pr-4 mb-6 custom-scrollbar">
                 <div
                   className="text-gray-300 text-sm md:text-base leading-relaxed break-words [&_a]:text-cyan-400 [&_a:hover]:text-cyan-300 [&_a]:underline [&_b]:text-white [&_b]:font-bold [&_strong]:text-white"
                   dangerouslySetInnerHTML={{
@@ -410,38 +583,67 @@ export default function FeedGrid({
                 />
               </div>
 
-              {/* MODAL ACTIONS */}
-              <div className="flex gap-3 mt-auto pt-6 border-t border-gray-800">
-                <button
+              <div className="flex gap-3 mt-auto pt-6 border-t border-gray-800/60 relative z-20">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={(e) => handleLike(selectedPost.id, e)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold transition cursor-none ${
+                  className={`group relative flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold transition-all duration-300 cursor-none overflow-hidden border ${
                     likedPosts.has(selectedPost.id)
-                      ? "bg-pink-600 text-white"
-                      : "bg-gray-800 hover:bg-gray-700 text-white"
+                      ? "bg-pink-500/10 border-pink-500/50 text-pink-400 shadow-[0_0_20px_rgba(236,72,153,0.15)]"
+                      : "bg-gray-900/50 border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-gray-200 hover:border-gray-500"
                   }`}
                 >
+                  {likedPosts.has(selectedPost.id) && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-pink-600/10 to-purple-600/10 blur-md pointer-events-none" />
+                  )}
+
                   <Heart
-                    size={20}
+                    size={18}
+                    className={`relative z-10 transition-transform duration-300 ${
+                      likedPosts.has(selectedPost.id)
+                        ? "scale-110"
+                        : "group-hover:scale-110"
+                    }`}
                     fill={
                       likedPosts.has(selectedPost.id) ? "currentColor" : "none"
                     }
                   />
-                  <span className="flex items-center gap-1">
-                    {likedPosts.has(selectedPost.id) ? "Liked" : "Like"}
-                    <span className="bg-black/20 px-2 py-0.5 rounded text-xs ml-1 opacity-70">
+                  <span className="relative z-10 flex items-center gap-1.5 tracking-wider text-sm uppercase">
+                    {likedPosts.has(selectedPost.id) ? "Saved" : "Save"}
+                    <span
+                      className={`px-2 py-0.5 rounded-md text-xs ml-1 transition-colors font-mono ${
+                        likedPosts.has(selectedPost.id)
+                          ? "bg-pink-500/20 text-pink-300"
+                          : "bg-gray-800 text-gray-500 group-hover:bg-gray-700 group-hover:text-gray-300"
+                      }`}
+                    >
                       {getDisplayLikes(selectedPost)}
                     </span>
                   </span>
-                </button>
-                <a
-                  href={videoUrl || selectedPost.imageUrl}
+                </motion.button>
+
+                <motion.a
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.95 }}
+                  href={
+                    videoUrl || selectedPost.highResUrl || selectedPost.imageUrl
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-700 text-white py-3 rounded-lg font-bold transition cursor-none"
+                  download
+                  className="group relative flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold transition-all duration-300 cursor-none overflow-hidden border border-cyan-500/30 bg-cyan-950/30 text-cyan-400 hover:text-cyan-300 hover:border-cyan-400/80 shadow-[0_0_15px_rgba(6,182,212,0.1)] hover:shadow-[0_0_25px_rgba(6,182,212,0.25)]"
                 >
-                  <Download size={20} />
-                  Download
-                </a>
+                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/0 via-cyan-400/10 to-cyan-400/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out pointer-events-none" />
+
+                  <Download
+                    size={18}
+                    className="relative z-10 transition-transform duration-300 group-hover:-translate-y-1"
+                  />
+                  <span className="relative z-10 tracking-wider text-sm uppercase">
+                    Original
+                  </span>
+                </motion.a>
               </div>
             </div>
           </div>
