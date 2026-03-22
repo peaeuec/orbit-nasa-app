@@ -142,7 +142,7 @@ export default function CommentSection({
                 </div>
 
                 {/* NEW: p-4 adds breathing room, break-words whitespace-pre-wrap forces wrapping */}
-                <p className="text-sm text-gray-300 leading-relaxed bg-gray-800/40 p-4 rounded-2xl rounded-tl-sm border border-gray-800/60 break-words whitespace-pre-wrap">
+                <p className="text-sm text-gray-300 leading-relaxed bg-gray-800/40 p-4 rounded-2xl rounded-tl-sm border border-gray-800/60 wrap-break-word whitespace-pre-wrap">
                   {comment.content}
                 </p>
               </div>

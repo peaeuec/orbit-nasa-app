@@ -111,8 +111,8 @@ export default function CollectionClient({
   return (
     <main className="min-h-screen bg-black text-white">
       {/* Header Section */}
-      <div className="bg-gradient-to-b from-gray-900 to-black border-b border-gray-800 pb-12 pt-20 px-4 relative overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-cyan-900/20 blur-[120px] pointer-events-none rounded-full" />
+      <div className="bg-linear-to-b from-gray-900 to-black border-b border-gray-800 pb-12 pt-20 px-4 relative overflow-hidden">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-200 h-100 bg-cyan-900/20 blur-[120px] pointer-events-none rounded-full" />
 
         <div className="container mx-auto max-w-6xl relative z-10">
           {/* TOP ROW: Back Button (Left) & Action Buttons (Right) */}
@@ -237,7 +237,7 @@ export default function CollectionClient({
         {/* FLOATING DELETE ACTION BAR */}
         <AnimatePresence>
           {isSelecting && selectedIds.size > 0 && (
-            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100]">
+            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-100">
               <div className="bg-red-950/90 backdrop-blur-md border border-red-500/50 px-6 py-4 rounded-full shadow-2xl flex items-center gap-4">
                 <span className="text-red-200 font-bold">
                   {selectedIds.size} selected

@@ -49,7 +49,7 @@ export default function HorizontalFeedCard({
 
   return (
     <div
-      className="min-w-[280px] w-[280px] md:min-w-[320px] md:w-[320px] group relative flex flex-col shrink-0"
+      className="min-w-70 w-70 md:min-w-[320px] md:w-[320px] group relative flex flex-col shrink-0"
       style={{ cursor: isDragging ? "grabbing" : "none" }}
       data-cursor-image="true"
       onClick={(e) => {
@@ -65,7 +65,7 @@ export default function HorizontalFeedCard({
         className={`relative transition-colors duration-300 overflow-hidden ${
           isFullscreen
             ? "w-full h-full bg-black flex items-center justify-center border-none rounded-none"
-            : "aspect-[4/3] rounded-xl bg-gray-900 border border-gray-800 mb-3 group/wrapper"
+            : "aspect-4/3 rounded-xl bg-gray-900 border border-gray-800 mb-3 group/wrapper"
         }`}
         onClick={(e) => {
           if (isFullscreen && item.mediaType === "image") {

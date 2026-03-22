@@ -224,7 +224,7 @@ export default function PostModal({
 
           <div className="flex-1 overflow-y-auto overflow-x-hidden pr-4 mb-1 custom-scrollbar relative flex flex-col">
             <div
-              className="text-gray-300 text-sm md:text-base leading-relaxed break-words [&_a]:text-cyan-400 [&_a:hover]:text-cyan-300 [&_a]:underline [&_b]:text-white [&_b]:font-bold [&_strong]:text-white"
+              className="text-gray-300 text-sm md:text-base leading-relaxed wrap-break-word [&_a]:text-cyan-400 [&_a:hover]:text-cyan-300 [&_a]:underline [&_b]:text-white [&_b]:font-bold [&_strong]:text-white"
               dangerouslySetInnerHTML={{
                 __html: parseDescription(post.description),
               }}
@@ -240,7 +240,7 @@ export default function PostModal({
               className={`group relative flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold transition-all duration-300 cursor-none border ${isLiked ? "bg-pink-500/10 border-pink-500/50 text-pink-400 shadow-[0_0_20px_rgba(236,72,153,0.15)]" : "bg-gray-900/50 border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-gray-200 hover:border-gray-500"}`}
             >
               {isLiked && (
-                <div className="absolute inset-0 bg-gradient-to-r from-pink-600/10 to-purple-600/10 blur-md pointer-events-none" />
+                <div className="absolute inset-0 bg-linear-to-r from-pink-600/10 to-purple-600/10 blur-md pointer-events-none" />
               )}
               <Heart
                 size={18}
@@ -276,7 +276,7 @@ export default function PostModal({
               download
               className="group relative flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold transition-all duration-300 cursor-none overflow-hidden border border-cyan-500/30 bg-cyan-950/30 text-cyan-400 hover:text-cyan-300 hover:border-cyan-400/80 shadow-[0_0_15px_rgba(6,182,212,0.1)] hover:shadow-[0_0_25px_rgba(6,182,212,0.25)]"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/0 via-cyan-400/10 to-cyan-400/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out pointer-events-none" />
+              <div className="absolute inset-0 bg-linear-to-r from-cyan-400/0 via-cyan-400/10 to-cyan-400/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out pointer-events-none" />
               <Download
                 size={18}
                 className="relative z-10 transition-transform duration-300 group-hover:-translate-y-1"

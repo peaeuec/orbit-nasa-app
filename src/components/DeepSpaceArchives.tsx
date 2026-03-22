@@ -96,7 +96,7 @@ export default function DeepSpaceArchives() {
               {col1.map((src, i) => (
                 <div
                   key={i}
-                  className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden shadow-2xl"
+                  className="relative w-full aspect-3/4 rounded-2xl overflow-hidden shadow-2xl"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -135,7 +135,7 @@ export default function DeepSpaceArchives() {
               {col3.map((src, i) => (
                 <div
                   key={i}
-                  className="relative w-full aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl"
+                  className="relative w-full aspect-4/5 rounded-2xl overflow-hidden shadow-2xl"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img

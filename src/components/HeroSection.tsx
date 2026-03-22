@@ -115,19 +115,19 @@ function DateRoll({
 
   return (
     <span className="flex items-center gap-2 text-amber-50 text-sm font-mono font-bold">
-      <span className="flex gap-[1px]">
+      <span className="flex gap-px">
         {yearDigits.map(({ d, delay }, i) => (
           <RollingDigit key={`y-${i}`} value={d} delay={delay} />
         ))}
       </span>
       <span className="opacity-40">—</span>
-      <span className="flex gap-[1px]">
+      <span className="flex gap-px">
         {monthDigits.map(({ d, delay }, i) => (
           <RollingDigit key={`m-${i}`} value={d} delay={delay} />
         ))}
       </span>
       <span className="opacity-40">—</span>
-      <span className="flex gap-[1px]">
+      <span className="flex gap-px">
         {dayDigits.map(({ d, delay }, i) => (
           <RollingDigit key={`d-${i}`} value={d} delay={delay} />
         ))}
@@ -408,7 +408,7 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
       {/* FULL SCREEN MODAL */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 cursor-auto"
+          className="fixed inset-0 z-100 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 cursor-auto"
           onClick={() => setIsOpen(false)}
           onWheel={(e) => e.stopPropagation()}
         >

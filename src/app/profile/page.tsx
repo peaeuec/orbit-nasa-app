@@ -57,7 +57,7 @@ export default async function ProfilePage() {
   return (
     <main className="min-h-screen bg-black text-white">
       {/* Profile Header */}
-      <div className="bg-gradient-to-b from-gray-900 to-black border-b border-gray-800 pb-12 pt-20 px-4">
+      <div className="bg-linear-to-b from-gray-900 to-black border-b border-gray-800 pb-12 pt-20 px-4">
         <div className="container mx-auto max-w-6xl">
           {/* Back Button cleanly stacked above the profile layout */}
           <div className="mb-8">
@@ -130,9 +130,9 @@ export default async function ProfilePage() {
                 <Link
                   key={col.id}
                   href={`/profile/collection/${col.id}`}
-                  className="group relative bg-gray-900/50 border border-gray-800 hover:border-cyan-500/50 rounded-2xl p-6 transition-all duration-300 hover:bg-gray-800 cursor-none flex flex-col justify-between min-h-[140px] overflow-hidden"
+                  className="group relative bg-gray-900/50 border border-gray-800 hover:border-cyan-500/50 rounded-2xl p-6 transition-all duration-300 hover:bg-gray-800 cursor-none flex flex-col justify-between min-h-35 overflow-hidden"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-br from-cyan-900/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="absolute inset-0 bg-linear-to-br from-cyan-900/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                   <div className="text-gray-500 mb-4 group-hover:-translate-y-1 group-hover:text-cyan-400 transition-all duration-300 relative z-10">
                     <Folder size={32} />
                   </div>
