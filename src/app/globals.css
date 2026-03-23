@@ -21,6 +21,16 @@
   }
 }
 
+/* --- THE SILVER BULLET FOR FULLSCREEN CURSORS --- */
+/* Force the native system mouse to reappear on anything that is currently fullscreen */
+:fullscreen,
+:fullscreen *,
+:-webkit-full-screen,
+:-webkit-full-screen * {
+  cursor: auto !important;
+}
+/* ------------------------------------------------ */
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #000000;

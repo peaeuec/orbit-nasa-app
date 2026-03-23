@@ -13,6 +13,7 @@ import {
 import { motion } from "framer-motion";
 import StaggeredText from "@/components/StaggeredText";
 import { toggleNativeFullscreen } from "@/utils/fullscreen";
+import CommentSection from "./CommentSection"; // NEW: Imported the CommentSection
 
 /* ---------------- VIDEO URL HELPERS ---------------- */
 const getHeroVideoUrl = (url: string) => {
@@ -180,7 +181,14 @@ function NextApodCountdown() {
 }
 /* ------------------------------------------------ */
 
-export default function HeroSection({ hero }: { hero: SpacePost }) {
+// NEW: Added userId to props to pass down to CommentSection
+export default function HeroSection({
+  hero,
+  userId,
+}: {
+  hero: SpacePost;
+  userId?: string;
+}) {
   const [isOpen, setIsOpen] = useState(false);
 
   // --- ZOOM & FULLSCREEN STATES ---
@@ -287,8 +295,13 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
             if (!isFullscreen) setIsOpen(true);
           }}
         >
+          {/* FIX: Added aspect-square md:aspect-video to lock the height instantly */}
           <div
-            className={`relative w-full overflow-hidden transition-colors duration-300 group/wrapper ${isFullscreen ? "h-screen bg-black flex items-center justify-center" : ""}`}
+            className={`relative w-full overflow-hidden transition-colors duration-300 group/wrapper ${
+              isFullscreen
+                ? "h-screen bg-black flex items-center justify-center"
+                : "aspect-square md:aspect-video"
+            }`}
             id="hero-media-wrapper"
             onMouseMove={isFullscreen ? handleZoomMove : undefined}
             onClick={(e) => {
@@ -308,25 +321,23 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
           >
             {hero.mediaType === "video" ? (
               isNativeVideo ? (
-                // FIX: Native video tag now uses High-Res and proper object-cover
                 <video
                   src={hero.highResUrl || hero.imageUrl}
                   autoPlay
                   muted
                   loop
                   playsInline
-                  className={`pointer-events-none transform transition-transform duration-[2s] ease-out group-hover:scale-105 ${isFullscreen ? "w-full h-full object-contain" : "w-full aspect-video object-cover"}`}
+                  className={`pointer-events-none transform transition-transform duration-[2s] ease-out group-hover:scale-105 ${isFullscreen ? "w-full h-full object-contain" : "absolute inset-0 w-full h-full object-cover"}`}
                 />
               ) : isEmbeddableVideo ? (
-                // Youtube/Vimeo Iframes keep the scale-125 to hide black bars
                 <iframe
                   src={getHeroVideoUrl(hero.imageUrl)}
                   allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-                  className={`pointer-events-none transform transition-transform duration-[2s] ease-out group-hover:scale-105 ${isFullscreen ? "w-full h-full" : "w-full aspect-video scale-125"}`}
+                  className={`pointer-events-none transform transition-transform duration-[2s] ease-out group-hover:scale-105 ${isFullscreen ? "w-full h-full" : "absolute inset-0 w-full h-full scale-125"}`}
                   title="APOD Video"
                 />
               ) : (
-                <div className="w-full aspect-video bg-gray-900 flex flex-col items-center justify-center text-cyan-500 border border-gray-800">
+                <div className="absolute inset-0 w-full h-full bg-gray-900 flex flex-col items-center justify-center text-cyan-500 border border-gray-800">
                   <PlayCircle size={64} className="opacity-50 mb-4 z-10" />
                   <p className="text-sm font-mono tracking-widest text-gray-400 z-10">
                     EXTERNAL VIDEO RECORD
@@ -342,11 +353,19 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
                 </div>
               )
             ) : (
-              // FIX: Image tag now uses High-Res
+              // FIX: Added absolute inset-0 w-full h-full object-cover
               <img
                 src={hero.highResUrl || hero.imageUrl}
                 alt={hero.title}
-                className={`object-contain transition-transform ease-out ${!isZoomed && !isFullscreen ? "duration-[2s] group-hover:scale-105" : "duration-300"} ${isFullscreen ? "w-full h-full" : "w-full h-auto"}`}
+                className={`transition-transform ease-out ${
+                  !isZoomed && !isFullscreen
+                    ? "duration-[2s] group-hover:scale-105"
+                    : "duration-300"
+                } ${
+                  isFullscreen
+                    ? "w-full h-full object-contain"
+                    : "absolute inset-0 w-full h-full object-cover"
+                }`}
                 style={
                   isFullscreen
                     ? {
@@ -360,8 +379,8 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
 
             {!isFullscreen && (
               <>
-                <div className="absolute inset-0 bg-linear-to-t from-black via-black/40 to-transparent opacity-90 pointer-events-none" />
-                <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition duration-500 pointer-events-none" />
+                <div className="absolute inset-0 bg-linear-to-t from-black via-black/40 to-transparent opacity-90 pointer-events-none z-10" />
+                <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition duration-500 pointer-events-none z-10" />
               </>
             )}
 
@@ -380,7 +399,7 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
             </button>
           </div>
 
-          <div className="absolute bottom-0 left-0 w-full p-6 md:p-10 z-10 pt-32 pointer-events-none">
+          <div className="absolute bottom-0 left-0 w-full p-6 md:p-10 z-20 pt-32 pointer-events-none">
             <h1
               data-cursor-invert="true"
               className="w-fit text-3xl md:text-5xl lg:text-6xl font-extrabold text-white mb-4 drop-shadow-xl leading-tight pointer-events-auto"
@@ -494,6 +513,7 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
               </button>
             </div>
 
+            {/* NEW: Flex-column layout for sticky comments, mirroring FeedGrid logic */}
             <div
               className="md:w-1/3 p-8 flex flex-col bg-gray-900 border-l border-gray-800 overflow-y-auto"
               data-lenis-prevent
@@ -506,10 +526,16 @@ export default function HeroSection({ hero }: { hero: SpacePost }) {
               <h2 className="text-3xl font-bold mb-6 text-white leading-tight">
                 {hero.title}
               </h2>
-              <div className="prose prose-invert prose-sm max-w-none text-gray-300">
-                <p className="whitespace-pre-line leading-relaxed text-base">
-                  {hero.description}
-                </p>
+
+              <div className="flex-1 overflow-y-auto overflow-x-hidden pr-3 mb-1 custom-scrollbar relative flex flex-col">
+                <div className="prose prose-invert prose-sm max-w-none text-gray-300 mb-8">
+                  <p className="whitespace-pre-line leading-relaxed text-base">
+                    {hero.description}
+                  </p>
+                </div>
+
+                {/* COMMENT SECTION INTEGRATION */}
+                <CommentSection postId={hero.id} userId={userId} />
               </div>
             </div>
           </div>

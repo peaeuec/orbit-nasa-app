@@ -140,12 +140,15 @@ export default function PostModal({
           onMouseMove={handleModalZoomMove}
           data-cursor-image="true"
           style={{
+            // FIX: If it's a video and fullscreen, default to 'auto' to show the system mouse!
             cursor:
-              isModalFullscreen && post.mediaType === "image"
-                ? isModalZoomed
-                  ? "zoom-out"
-                  : "zoom-in"
-                : "auto",
+              isModalFullscreen && post.mediaType === "video"
+                ? "auto"
+                : isModalFullscreen && post.mediaType === "image"
+                  ? isModalZoomed
+                    ? "zoom-out"
+                    : "zoom-in"
+                  : "auto",
           }}
         >
           {post.mediaType === "video" ? (
@@ -159,7 +162,10 @@ export default function PostModal({
             ) : videoUrl ? (
               <video
                 src={videoUrl}
-                className="w-full h-full max-h-[85vh] outline-none"
+                // FIX: Added explicit cursor logic here to override the global cursor-none
+                className={`w-full h-full outline-none ${
+                  isModalFullscreen ? "cursor-default" : "max-h-[85vh]"
+                }`}
                 controls
                 autoPlay
               />
@@ -184,12 +190,14 @@ export default function PostModal({
               }}
             />
           )}
+
           <button
             onClick={(e) => {
               e.stopPropagation();
               toggleNativeFullscreen(e, "grid-modal-media");
             }}
-            className="absolute top-6 right-6 bg-black/50 backdrop-blur-md p-3 rounded-full opacity-0 group-hover/modal-media:opacity-100 transition transform hover:scale-110 z-20 border border-gray-600 hover:border-cyan-400 hover:shadow-[0_0_15px_rgba(6,182,212,0.5)] cursor-none"
+            // FIX: Remove cursor-none dynamically when fullscreen so the mouse works
+            className={`absolute top-6 right-6 bg-black/50 backdrop-blur-md p-3 rounded-full opacity-0 group-hover/modal-media:opacity-100 transition transform hover:scale-110 z-20 border border-gray-600 hover:border-cyan-400 hover:shadow-[0_0_15px_rgba(6,182,212,0.5)] ${isModalFullscreen ? "cursor-auto" : "cursor-none"}`}
           >
             {isModalFullscreen ? (
               <Minimize2 className="text-white w-5 h-5" />

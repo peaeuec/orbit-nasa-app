@@ -3,9 +3,17 @@ import AuthForm from "@/components/AuthForm";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ message?: string }>;
+  // 1. Add 'view' to the Promise type definition
+  searchParams: Promise<{ message?: string; view?: string }>;
 }) {
-  const { message } = await searchParams;
+  // 2. Await the params to unlock the data
+  const resolvedParams = await searchParams;
 
-  return <AuthForm message={message} />;
+  // 3. Extract what we need
+  const message = resolvedParams.message;
+  const isSignup = resolvedParams.view === "signup";
+
+  return (
+    <AuthForm message={message} initialView={isSignup ? "signup" : "login"} />
+  );
 }

@@ -13,7 +13,6 @@ interface FeedCardProps {
   onClick: (post: SpacePost) => void;
   isLiked: boolean;
   displayLikes: number;
-  // For Collection Selection Mode
   isSelecting?: boolean;
   isSelected?: boolean;
   onSelect?: (id: string) => void;
@@ -151,7 +150,8 @@ export default function FeedCard({
                 e.stopPropagation();
                 toggleNativeFullscreen(e, `grid-media-${post.id}`);
               }}
-              className={`absolute top-4 right-4 bg-black/50 backdrop-blur-md p-2 rounded-full transition transform hover:scale-110 z-20 border border-gray-600 hover:border-cyan-400 hover:shadow-[0_0_15px_rgba(6,182,212,0.5)] cursor-none ${isFullscreen ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-hover/media:opacity-100"}`}
+              // FIX: Dynamically remove cursor-none when fullscreen
+              className={`absolute top-4 right-4 bg-black/50 backdrop-blur-md p-2 rounded-full transition transform hover:scale-110 z-20 border border-gray-600 hover:border-cyan-400 hover:shadow-[0_0_15px_rgba(6,182,212,0.5)] ${isFullscreen ? "opacity-100 cursor-auto" : "opacity-0 group-hover:opacity-100 group-hover/media:opacity-100 cursor-none"}`}
             >
               {isFullscreen ? (
                 <Minimize2 className="text-white w-4 h-4" />
@@ -192,7 +192,8 @@ export default function FeedCard({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       data-cursor-image="true"
-      className="relative group mb-8 break-inside-avoid cursor-none rounded-2xl overflow-hidden shrink-0"
+      // FIX: Dynamically remove cursor-none on the parent wrapper when fullscreen
+      className={`relative group mb-8 break-inside-avoid rounded-2xl overflow-hidden shrink-0 ${isFullscreen ? "cursor-auto" : "cursor-none"}`}
     >
       {renderContent(false)}
 

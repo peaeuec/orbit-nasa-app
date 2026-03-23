@@ -17,7 +17,6 @@ const containerVariants: Variants = {
   },
 };
 
-// Functions are perfectly legal inside the Variants object!
 const wordVariants: Variants = {
   hidden: (isLogin: boolean) => ({
     y: isLogin ? -40 : 40,
@@ -44,9 +43,16 @@ const wordVariants: Variants = {
   }),
 };
 
-export default function AuthForm({ message }: { message?: string }) {
-  // Default is set to true (Log In)
-  const [isLogin, setIsLogin] = useState(true);
+// FIX: Added initialView to props
+export default function AuthForm({
+  message,
+  initialView = "login",
+}: {
+  message?: string;
+  initialView?: "login" | "signup";
+}) {
+  // FIX: State now initializes based on the prop passed from the server
+  const [isLogin, setIsLogin] = useState(initialView === "login");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -67,13 +73,13 @@ export default function AuthForm({ message }: { message?: string }) {
       <div className="relative z-10 hidden md:flex w-1/2 flex-col justify-between p-12 lg:p-20">
         <Link
           href="/"
-          className="text-3xl font-bold tracking-tightest bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent w-fit cursor-none"
+          className="text-3xl font-bold tracking-tightest bg-linear-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent w-fit cursor-none"
         >
           ORBIT
         </Link>
 
         {/* The Rolling Staggered Heading Container */}
-        <div className="relative min-h-[160px] lg:min-h-[220px] w-full flex items-center">
+        <div className="relative min-h-40 lg:min-h-55 w-full flex items-center">
           <AnimatePresence mode="popLayout" custom={isLogin}>
             <motion.h1
               key={isLogin ? "login" : "signup"}
@@ -87,7 +93,7 @@ export default function AuthForm({ message }: { message?: string }) {
               {headingText.split(" ").map((word, i) => (
                 <motion.span
                   key={i}
-                  custom={isLogin} // Explicitly pass custom state down to the words
+                  custom={isLogin}
                   variants={wordVariants}
                   className="inline-block mr-3 lg:mr-4 mb-2 origin-bottom"
                 >
@@ -99,7 +105,6 @@ export default function AuthForm({ message }: { message?: string }) {
         </div>
 
         {/* The glass toggle card */}
-        {/* FIX: Changed to <motion.div layout>. Replaced transition-all with transition-colors so CSS doesn't fight the layout engine! */}
         <motion.div
           layout
           className="backdrop-blur-lg bg-white/10 p-6 rounded-3xl border border-white/20 w-fit shadow-2xl transition-colors duration-500 hover:bg-white/20 overflow-hidden"
@@ -134,7 +139,6 @@ export default function AuthForm({ message }: { message?: string }) {
           </div>
           {/* --------------------------------- */}
 
-          {/* FIX: Turned into a <motion.button layout> to smoothly shift the arrow when text width changes */}
           <motion.button
             layout
             type="button"
@@ -142,7 +146,6 @@ export default function AuthForm({ message }: { message?: string }) {
             className="text-white font-bold text-xl flex items-center gap-2 group outline-none cursor-none mt-1"
             data-cursor-invert="true"
           >
-            {/* FIX: Simple Fade for the button text */}
             <AnimatePresence mode="popLayout">
               <motion.span
                 key={isLogin ? "signup-btn" : "signin-btn"}
@@ -155,7 +158,6 @@ export default function AuthForm({ message }: { message?: string }) {
               </motion.span>
             </AnimatePresence>
 
-            {/* The layout prop here allows the arrow to dynamically slide left/right as the text cross-fades */}
             <motion.div layout>
               <ArrowRight className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" />
             </motion.div>
@@ -166,8 +168,8 @@ export default function AuthForm({ message }: { message?: string }) {
       {/* --- RIGHT SIDE: THE GLASSMORPHISM FORM --- */}
       <div className="relative z-10 w-full md:w-1/2 flex items-center justify-center p-8 lg:p-20 backdrop-blur-xl bg-black/40 border-l border-white/10 shadow-[-20px_0_40px_rgba(0,0,0,0.5)]">
         <div className="w-full max-w-sm">
-          {/* Form Header (Synchronized with the Left Side Roll) */}
-          <div className="mb-10 min-h-[80px] relative">
+          {/* Form Header */}
+          <div className="mb-10 min-h-20 relative">
             <AnimatePresence mode="popLayout">
               <motion.div
                 key={isLogin ? "login" : "signup"}

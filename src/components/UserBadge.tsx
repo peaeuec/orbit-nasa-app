@@ -18,7 +18,7 @@ export default function UserBadge({ user }: { user: User }) {
       className="group flex items-center bg-gray-900/50 hover:bg-gray-800 border border-transparent hover:border-gray-700 rounded-full pr-1 transition-all duration-300"
     >
       {/* --- Avatar Circle --- */}
-      <div className="relative w-10 h-10 rounded-full overflow-hidden border border-gray-700 group-hover:border-blue-500 transition-colors shadow-lg">
+      <div className="relative w-10 h-10 rounded-full overflow-hidden border border-gray-700 group-hover:border-cyan-500 transition-colors shadow-lg">
         {avatarUrl ? (
           // If they have a picture, show it
           <img
@@ -36,7 +36,7 @@ export default function UserBadge({ user }: { user: User }) {
 
       {/* --- The Sliding Name --- */}
       <div className="max-w-0 overflow-hidden group-hover:max-w-37.5 transition-all duration-700 ease-[cubic-bezier0.16, 0.85, 0.3, 1]">
-        <span className="pl-3 pr-4 text-sm font-bold text-gray-50 whitespace-nowrap opacity-0 translate-y-[2px] group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-400 delay-100">
+        <span className="pl-3 pr-4 text-sm font-bold text-gray-50 whitespace-nowrap opacity-0 translate-y-0.5 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-400 delay-100">
           {username}
         </span>
       </div>

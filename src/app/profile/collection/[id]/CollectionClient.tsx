@@ -6,7 +6,7 @@ import { createClient } from "@/utils/supabase/client";
 import FeedGrid from "@/components/FeedGrid";
 import BackButton from "@/components/BackButton";
 import StaggeredText from "@/components/StaggeredText";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   FolderOpen,
   Calendar,
@@ -18,6 +18,7 @@ import {
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
 
 export default function CollectionClient({
@@ -38,6 +39,9 @@ export default function CollectionClient({
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // NEW: State to trigger the custom delete confirmation modal
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
   // 1. Sorting Logic
   const sortedPosts = [...posts].sort((a, b) => {
@@ -87,15 +91,8 @@ export default function CollectionClient({
     setIsDeleting(false);
   };
 
-  // 5. Delete Entire Collection Logic
-  const handleDeleteCollection = async () => {
-    if (
-      !window.confirm(
-        `Are you sure you want to delete "${collectionName}"? This cannot be undone.`,
-      )
-    )
-      return;
-
+  // 5. Delete Entire Collection Logic (Updated to be called by the modal)
+  const confirmDeleteCollection = async () => {
     await supabase.from("collections").delete().eq("id", initialCollection.id);
     router.push("/profile");
   };
@@ -110,6 +107,51 @@ export default function CollectionClient({
 
   return (
     <main className="min-h-screen bg-black text-white">
+      {/* --- CUSTOM DELETE CONFIRMATION POPUP --- */}
+      <AnimatePresence>
+        {isConfirmingDelete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-150 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 10 }}
+              className="bg-gray-900 border border-gray-700 p-6 rounded-2xl shadow-2xl max-w-sm w-full text-center"
+            >
+              <div className="w-12 h-12 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle size={24} />
+              </div>
+              <h4 className="text-lg font-bold text-white mb-2">
+                Delete Collection?
+              </h4>
+              <p className="text-gray-400 text-sm mb-6">
+                Are you sure you want to permanently delete "{collectionName}"?
+                This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setIsConfirmingDelete(false)}
+                  className="flex-1 px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-white rounded-xl text-sm font-bold transition-colors cursor-none"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteCollection}
+                  className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-sm font-bold transition-colors cursor-none shadow-[0_0_15px_rgba(220,38,38,0.3)]"
+                >
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* ------------------------------------------ */}
+
       {/* Header Section */}
       <div className="bg-linear-to-b from-gray-900 to-black border-b border-gray-800 pb-12 pt-20 px-4 relative overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-200 h-100 bg-cyan-900/20 blur-[120px] pointer-events-none rounded-full" />
@@ -132,7 +174,7 @@ export default function CollectionClient({
               </button>
 
               <button
-                onClick={handleDeleteCollection}
+                onClick={() => setIsConfirmingDelete(true)} // UPDATE: Triggers modal instead of window.confirm
                 className="p-2.5 rounded-xl border border-gray-700 bg-gray-900 text-gray-400 hover:text-red-400 hover:border-red-500/50 hover:bg-red-950/30 transition-colors cursor-none"
                 title="Delete Collection"
               >
@@ -160,12 +202,17 @@ export default function CollectionClient({
                       type="text"
                       value={collectionName}
                       onChange={(e) => setCollectionName(e.target.value)}
-                      // FIX: Made the input have softer rounded-2xl corners
-                      className="bg-black border border-cyan-500 text-4xl md:text-5xl font-bold text-white px-3 py-1 rounded-2xl outline-none w-full"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveName();
+                        else if (e.key === "Escape") {
+                          setCollectionName(initialCollection.name);
+                          setIsEditingName(false);
+                        }
+                      }}
+                      className="bg-black border border-cyan-500 text-3xl md:text-5xl font-bold text-white px-3 py-1 rounded-2xl outline-none w-full"
                     />
                     <button
                       onClick={handleSaveName}
-                      // FIX: Changed from rounded to rounded-full
                       className="p-2.5 bg-cyan-600 hover:bg-cyan-500 rounded-full text-white cursor-none transition-colors shadow-lg"
                     >
                       <Check size={20} strokeWidth={3} />
@@ -175,7 +222,6 @@ export default function CollectionClient({
                         setCollectionName(initialCollection.name);
                         setIsEditingName(false);
                       }}
-                      // FIX: Changed from rounded to rounded-full
                       className="p-2.5 bg-gray-800 hover:bg-gray-700 rounded-full text-white cursor-none transition-colors"
                     >
                       <X size={20} strokeWidth={3} />

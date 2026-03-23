@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js"; // NEW: For admin operations
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -23,12 +24,8 @@ export async function likePost(nasaId: string) {
 
   if (existingLike) {
     // --- UNLIKE FLOW ---
-
-    // A. Remove Bookmark
     await supabase.from("likes").delete().eq("id", existingLike.id);
 
-    // B. Decrement Global Count
-    // We use a raw RPC or a manual update. Manual is safer for now.
     const { data: currentCount } = await supabase
       .from("post_likes")
       .select("like_count")
@@ -43,21 +40,17 @@ export async function likePost(nasaId: string) {
     }
   } else {
     // --- LIKE FLOW ---
-
-    // A. Add Bookmark
     await supabase.from("likes").insert({
       user_id: user.id,
       nasa_id: nasaId,
     });
 
-    // B. Increment Global Count
     const { data: currentCount } = await supabase
       .from("post_likes")
       .select("like_count")
       .eq("post_id", nasaId)
       .single();
 
-    // Upsert ensures we create the row if it's the first like ever
     await supabase
       .from("post_likes")
       .upsert(
@@ -66,7 +59,6 @@ export async function likePost(nasaId: string) {
       );
   }
 
-  // 5. Refresh the page data
   revalidatePath("/explore");
   revalidatePath("/profile");
   revalidatePath("/search");
@@ -93,5 +85,47 @@ export async function addComment(postId: string, content: string) {
   });
 
   if (error) throw error;
-  revalidatePath(`/explore`); // Refresh data
+  revalidatePath(`/explore`);
+}
+
+// --- NEW: DELETE ACCOUNT ACTION ---
+export async function deleteAccount(password: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user || !user.email) {
+    return { error: "Not authenticated" };
+  }
+
+  // 1. Verify the password by attempting a background login
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: password,
+  });
+
+  if (signInError) {
+    return { error: "Invalid password. Authorization denied." };
+  }
+
+  // 2. Initialize the Admin Client to bypass RLS and delete the user
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
+  const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(
+    user.id,
+  );
+
+  if (deleteError) {
+    console.error("Delete user error:", deleteError);
+    return { error: "Failed to purge account data. Contact Houston." };
+  }
+
+  // 3. Success! Sign them out and redirect to home
+  await supabase.auth.signOut();
+  revalidatePath("/");
+  redirect("/");
 }

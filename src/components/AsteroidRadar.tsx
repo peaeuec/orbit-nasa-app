@@ -1,6 +1,6 @@
 "use client";
 
-import {
+import React, {
   useRef,
   useState,
   useEffect,
@@ -114,7 +114,7 @@ function AsteroidCard({
 
     return (
       <div
-        className={`p-4 rounded-xl border h-full w-[280px] flex flex-col justify-between ${bgColor} ${borderColor}`}
+        className={`p-4 rounded-xl border h-full w-70 flex flex-col justify-between ${bgColor} ${borderColor}`}
       >
         <div className="flex justify-between items-start mb-3">
           <h4 className={`font-bold font-mono truncate mr-2 ${titleColor}`}>
@@ -197,13 +197,33 @@ function AsteroidCard({
 const SmoothTicker = forwardRef(
   (props: { children: React.ReactNode; itemCount: number }, ref) => {
     const { children, itemCount } = props;
+
+    // Core States
     const [isHovered, setIsHovered] = useState(false);
-    const xValue = useMotionValue(0);
-    const speed = useSpring(1, { damping: 40, stiffness: 50 });
+    const isHoveredRef = useRef(false); // Ref tracks state safely inside timeouts
     const idleTimeout = useRef<NodeJS.Timeout | null>(null);
 
-    const ITEM_WIDTH = 304;
-    const SET_WIDTH = itemCount * ITEM_WIDTH;
+    // Physics Values
+    const xValue = useMotionValue(0);
+    const speed = useSpring(1, { damping: 40, stiffness: 50 });
+
+    // Sizing Logic
+    const ITEM_WIDTH = 304; // 280px card + 24px gap
+    const contentWidth = itemCount * ITEM_WIDTH;
+    const [domSetWidth, setDomSetWidth] = useState(contentWidth);
+    const setWidth = useMotionValue(contentWidth);
+
+    // Update the set width dynamically: If there's 1 item, it pads the rest of the screen with empty space!
+    useEffect(() => {
+      const updateWidth = () => {
+        const w = Math.max(contentWidth, window.innerWidth);
+        setDomSetWidth(w);
+        setWidth.set(w);
+      };
+      updateWidth();
+      window.addEventListener("resize", updateWidth);
+      return () => window.removeEventListener("resize", updateWidth);
+    }, [contentWidth, setWidth]);
 
     useImperativeHandle(ref, () => ({
       scrollLeft: () => navigate(-1),
@@ -216,19 +236,23 @@ const SmoothTicker = forwardRef(
 
       const currentX = xValue.get();
       const currentIndex = Math.round(currentX / ITEM_WIDTH);
-
       const targetX = (currentIndex - direction) * ITEM_WIDTH;
+
       animate(xValue, targetX, { type: "spring", stiffness: 150, damping: 25 });
 
       idleTimeout.current = setTimeout(() => {
-        speed.set(1);
+        idleTimeout.current = null; // Clear the timeout so hover logic can take over
+        if (!isHoveredRef.current) speed.set(1);
       }, 2000);
     };
 
+    // Hover Resume Logic Fix
     useEffect(() => {
+      isHoveredRef.current = isHovered;
       if (isHovered) {
         speed.set(0);
       } else {
+        // Only auto-resume if we aren't waiting for a click-navigation timeout to finish
         if (!idleTimeout.current) speed.set(1);
       }
     }, [isHovered, speed]);
@@ -241,18 +265,21 @@ const SmoothTicker = forwardRef(
       }
     });
 
-    const x = useTransform(xValue, (v) => {
-      const w = ((v % SET_WIDTH) + SET_WIDTH) % SET_WIDTH;
-      const finalX = w === 0 ? 0 : w - SET_WIDTH;
+    // The magical wrap-around loop that adjusts based on screen padding
+    const x = useTransform(() => {
+      const v = xValue.get();
+      const sw = setWidth.get() || 1;
+      const w = ((v % sw) + sw) % sw;
+      const finalX = w === 0 ? 0 : w - sw;
       return `${finalX}px`;
     });
 
     return (
       <div
-        className="relative w-full py-8 -my-4 z-10"
+        className="relative overflow-hidden py-8 -my-4 z-10 -mx-8 md:-mx-10"
         style={{
           maskImage:
-            "linear-gradient(to right, transparent, black 5%, black 95%, transparent)",
+            "linear-gradient(to right, transparent, black 40px, black calc(100% - 40px), transparent)",
         }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -260,9 +287,15 @@ const SmoothTicker = forwardRef(
         <div className="flex w-full">
           <motion.div
             style={{ x }}
-            className="flex gap-6 w-max cursor-grab active:cursor-grabbing px-6"
+            className="flex w-max cursor-grab active:cursor-grabbing px-8 md:px-10"
           >
-            {children}
+            {/* Exactly 2 sets rendered. If only 1 item, it acts as a single looping marquee */}
+            <div style={{ width: domSetWidth }} className="flex gap-6 shrink-0">
+              {children}
+            </div>
+            <div style={{ width: domSetWidth }} className="flex gap-6 shrink-0">
+              {children}
+            </div>
           </motion.div>
         </div>
       </div>
@@ -287,27 +320,23 @@ export default function AsteroidRadar({ data }: AsteroidRadarProps) {
     offset: ["start end", "end start"],
   });
 
-  // FIX: Swapped the X translation for a radial clip-path sweep!
-  // It maps the scroll progress to a circle radius from 0% to 150%.
   const rawRadius = useTransform(
     scrollYProgress,
     [0.1, 0.35, 0.65, 0.85],
     [0, 150, 150, 0],
   );
 
-  // We wrap the raw radius in a spring so it "snaps" open like a real radar ping
-  // rather than rigidly following your exact scroll pixel.
   const smoothRadius = useSpring(rawRadius, {
     stiffness: 60,
     damping: 20,
     mass: 1,
   });
+
   const clipPath = useTransform(
     smoothRadius,
     (r) => `circle(${r}% at 50% 50%)`,
   );
 
-  // Opacity fades in slightly ahead of the sweep to soften the edges
   const opacity = useTransform(
     scrollYProgress,
     [0.05, 0.15, 0.85, 0.95],
@@ -333,9 +362,8 @@ export default function AsteroidRadar({ data }: AsteroidRadarProps) {
           `}</style>
 
           <motion.div
-            // FIX: Applied the clipPath here instead of `x`
             style={{ clipPath, opacity }}
-            className={`group/card relative w-full p-[2px] rounded-[2rem] overflow-hidden transition-all duration-700 ease-out hover:-translate-y-2 hover:scale-[1.005] ${
+            className={`group/card relative w-full p-0.5 rounded-4xl overflow-hidden transition-all duration-700 ease-out hover:-translate-y-2 hover:scale-[1.005] ${
               isDanger
                 ? "hover:shadow-[0_40px_80px_-15px_rgba(220,38,38,0.3)]"
                 : "hover:shadow-[0_40px_80px_-15px_rgba(34,211,238,0.25)]"
@@ -402,7 +430,7 @@ export default function AsteroidRadar({ data }: AsteroidRadarProps) {
                       className="text-gray-500 group-hover/info:text-cyan-400 transition"
                     />
 
-                    <div className="absolute top-full left-1/2 md:left-auto md:right-[-20px] -translate-x-1/2 md:translate-x-0 mt-4 w-[280px] md:w-[320px] p-5 bg-gray-900 text-xs text-gray-300 rounded-xl opacity-0 group-hover/info:opacity-100 pointer-events-none transition-all duration-300 z-50 shadow-2xl border border-gray-700">
+                    <div className="absolute top-full left-1/2 md:left-auto md:-right-5 -translate-x-1/2 md:translate-x-0 mt-4 w-70 md:w-[320px] p-5 bg-gray-900 text-xs text-gray-300 rounded-xl opacity-0 group-hover/info:opacity-100 pointer-events-none transition-all duration-300 z-50 shadow-2xl border border-gray-700">
                       <p className="mb-3">
                         <strong className="text-cyan-400">
                           Lunar Distance (LD)
@@ -430,40 +458,35 @@ export default function AsteroidRadar({ data }: AsteroidRadarProps) {
                         <strong className="text-green-400">does not</strong>{" "}
                         mean a collision is expected.
                       </p>
-                      <div className="absolute bottom-full left-1/2 md:left-auto md:right-[24px] -translate-x-1/2 md:translate-x-0 -mb-[1px] border-[6px] border-transparent border-b-gray-700"></div>
+                      <div className="absolute bottom-full left-1/2 md:left-auto md:right-6 -translate-x-1/2 md:translate-x-0 -mb-px border-[6px] border-transparent border-b-gray-700"></div>
                     </div>
                   </div>
                 </div>
 
-                {/* Right side: Large, Thin Navigation Arrows */}
-                <div className="flex items-center gap-3 opacity-0 group-hover/card:opacity-100 transition-opacity duration-500">
-                  <button
-                    onClick={() => tickerRef.current?.scrollLeft()}
-                    className="w-11 h-11 flex items-center justify-center rounded-full border border-gray-700 bg-black/50 text-gray-400 hover:text-white hover:border-gray-400 hover:scale-110 hover:bg-gray-900/50 transition-all duration-300 cursor-none"
-                  >
-                    <ArrowLeft size={22} strokeWidth={1.2} />
-                  </button>
-                  <button
-                    onClick={() => tickerRef.current?.scrollRight()}
-                    className="w-11 h-11 flex items-center justify-center rounded-full border border-gray-700 bg-black/50 text-gray-400 hover:text-white hover:border-gray-400 hover:scale-110 hover:bg-gray-900/50 transition-all duration-300 cursor-none"
-                  >
-                    <ArrowRight size={22} strokeWidth={1.2} />
-                  </button>
-                </div>
+                {/* Right side: Large, Thin Navigation Arrows (ONLY VISIBLE IF > 3 ASTEROIDS) */}
+                {data.asteroids.length > 3 && (
+                  <div className="flex items-center gap-3 opacity-0 group-hover/card:opacity-100 transition-opacity duration-500">
+                    <button
+                      onClick={() => tickerRef.current?.scrollLeft()}
+                      className="w-11 h-11 flex items-center justify-center rounded-full border border-gray-700 bg-black/50 text-gray-400 hover:text-white hover:border-gray-400 hover:scale-110 hover:bg-gray-900/50 transition-all duration-300 cursor-none"
+                    >
+                      <ArrowLeft size={22} strokeWidth={1.2} />
+                    </button>
+                    <button
+                      onClick={() => tickerRef.current?.scrollRight()}
+                      className="w-11 h-11 flex items-center justify-center rounded-full border border-gray-700 bg-black/50 text-gray-400 hover:text-white hover:border-gray-400 hover:scale-110 hover:bg-gray-900/50 transition-all duration-300 cursor-none"
+                    >
+                      <ArrowRight size={22} strokeWidth={1.2} />
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* --- THE BUTTERY SMOOTH TICKER TAPE --- */}
               <SmoothTicker ref={tickerRef} itemCount={data.asteroids.length}>
                 {data.asteroids.map((asteroid) => (
                   <AsteroidCard
-                    key={`set1-${asteroid.id}`}
-                    asteroid={asteroid}
-                    maxDistance={maxDistance}
-                  />
-                ))}
-                {data.asteroids.map((asteroid) => (
-                  <AsteroidCard
-                    key={`set2-${asteroid.id}`}
+                    key={`asteroid-${asteroid.id}`}
                     asteroid={asteroid}
                     maxDistance={maxDistance}
                   />

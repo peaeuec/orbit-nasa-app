@@ -2,13 +2,13 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { getPostById } from "@/lib/api";
 import FeedGrid from "@/components/FeedGrid";
-import { LogOut, Rocket, Folder } from "lucide-react";
+import { Folder } from "lucide-react";
 import { signOut } from "@/app/actions";
-import AvatarUpload from "@/components/AvatarUpload";
 import { getBulkLikeCounts } from "@/lib/db";
-import StaggeredText from "@/components/StaggeredText";
-import BackButton from "@/components/BackButton"; // 1. Imported BackButton
+import BackButton from "@/components/BackButton";
 import Link from "next/link";
+import ProfileHeader from "./ProfileHeader";
+import Starfield from "@/components/StarField"; // NEW: Import the animated background
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -44,7 +44,7 @@ export default async function ProfilePage() {
     likes: likeCounts[post.id] || 0,
   }));
 
-  // NEW: 6. Fetch User's Custom Collections
+  // 6. Fetch User's Custom Collections
   const { data: userCollections } = await supabase
     .from("collections")
     .select("id, name, created_at")
@@ -57,70 +57,35 @@ export default async function ProfilePage() {
   return (
     <main className="min-h-screen bg-black text-white">
       {/* Profile Header */}
-      <div className="bg-linear-to-b from-gray-900 to-black border-b border-gray-800 pb-12 pt-20 px-4">
-        <div className="container mx-auto max-w-6xl">
-          {/* Back Button cleanly stacked above the profile layout */}
+      {/* FIX: Added 'relative' and 'overflow-hidden' to contain the stars */}
+      <div className="relative bg-linear-to-b from-gray-900 to-black border-b border-gray-800 pb-12 pt-20 px-4 overflow-hidden">
+        {/* NEW: Mount the animated star background */}
+        <Starfield />
+
+        {/* FIX: Added 'relative z-10' to ensure content stays above the stars */}
+        <div className="container mx-auto max-w-6xl relative z-10">
           <div className="mb-8">
             <BackButton fallback="/explore" />
           </div>
 
-          <div className="flex flex-col md:flex-row items-center md:items-end justify-between gap-6">
-            <div className="flex items-center gap-6">
-              <AvatarUpload
-                userId={user.id}
-                userUrl={avatarUrl}
-                username={username}
-              />
-
-              <div>
-                {/* Added Staggered Text and Custom Cursor Logic */}
-                <button
-                  className="group cursor-none w-fit mb-2 outline-none"
-                  data-cursor-invert="true"
-                >
-                  <StaggeredText
-                    text={username}
-                    className="text-4xl font-bold text-cyan-400"
-                    hideClass="group-hover:-translate-y-full"
-                    showClass="group-hover:translate-y-0 text-white"
-                  />
-                </button>
-
-                {/* Added Cursor Invert to the sub-text */}
-                <p
-                  className="text-gray-400 text-sm flex items-center gap-2 cursor-none w-fit"
-                  data-cursor-invert="true"
-                >
-                  <Rocket size={14} className="text-cyan-500 animate-pulse" />
-                  User Status: Active
-                </p>
-                <p
-                  className="text-gray-500 text-xs mt-1 font-mono uppercase cursor-none w-fit"
-                  data-cursor-invert="true"
-                >
-                  ID: {user.id.slice(0, 8)}...
-                </p>
-              </div>
-            </div>
-
-            <form action={signOut}>
-              <button className="flex items-center gap-2 px-6 py-3 rounded-full border border-red-900/50 text-red-400 hover:bg-red-950/30 hover:border-red-500 transition text-sm font-bold uppercase tracking-wider cursor-none">
-                <LogOut size={16} />
-                Logout
-              </button>
-            </form>
-          </div>
+          <ProfileHeader
+            userId={user.id}
+            initialUsername={username}
+            avatarUrl={avatarUrl}
+            signOutAction={signOut}
+          />
         </div>
       </div>
 
       {/* Main Content Area */}
       <div className="container mx-auto max-w-6xl px-4 py-12">
-        {/* NEW: COLLECTIONS SECTION */}
+        {/* COLLECTIONS SECTION */}
         <div className="mb-16">
           <div className="flex items-center gap-4 mb-8">
             <h2 className="text-2xl font-bold">Your Collections</h2>
             <span className="bg-cyan-900/30 text-cyan-400 border border-cyan-900/50 px-3 py-1 rounded-full text-xs font-mono uppercase tracking-widest">
-              {userCollections?.length || 0} Folders
+              {userCollections?.length || 0} Folder
+              {userCollections?.length !== 1 ? "s" : ""}
             </span>
           </div>
 
@@ -160,7 +125,8 @@ export default async function ProfilePage() {
           <div className="flex items-center gap-4 mb-8 border-t border-gray-800/50 pt-12">
             <h2 className="text-2xl font-bold">Liked Posts</h2>
             <span className="bg-pink-900/20 text-pink-400 border border-pink-900/30 px-3 py-1 rounded-full text-xs font-mono uppercase tracking-widest">
-              {savedPostsWithCounts.length} Items
+              {savedPostsWithCounts.length} Item
+              {savedPostsWithCounts.length !== 1 ? "s" : ""}
             </span>
           </div>
 
