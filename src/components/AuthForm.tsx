@@ -227,9 +227,7 @@ export default function AuthForm({
                 type="text"
                 required
                 placeholder={
-                  isLogin
-                    ? "SpaceCadet99 or astronaut@nasa.gov"
-                    : "SpaceCadet99"
+                  isLogin ? "Crusader or astronaut@example.com" : "Crusader"
                 }
                 className="bg-white/5 border border-white/10 rounded-xl p-3.5 text-white placeholder:text-gray-500 focus:bg-white/10 focus:border-cyan-400 outline-none transition-all duration-300 cursor-none"
               />
