@@ -6,18 +6,20 @@ import { motion, useMotionValue, useSpring } from "framer-motion";
 export default function CustomCursor() {
   const [variant, setVariant] = useState("default");
 
-  // NEW: Store the exact screen coordinates of the mouse
+  // Store the exact screen coordinates of the mouse
   const mousePos = useRef({ x: -100, y: -100 });
 
   const mouseX = useMotionValue(-100);
   const mouseY = useMotionValue(-100);
 
-  const springConfig = { damping: 25, stiffness: 400, mass: 0.5 };
+  // FIX 1: Tighter tracking physics.
+  // Lower mass + higher stiffness/damping = fast and snappy, zero wobble.
+  const springConfig = { damping: 40, stiffness: 800, mass: 0.1 };
   const springX = useSpring(mouseX, springConfig);
   const springY = useSpring(mouseY, springConfig);
 
   useEffect(() => {
-    // NEW: Centralized logic to check what is under the cursor
+    // Centralized logic to check what is under the cursor
     const updateCursorVariant = (x: number, y: number) => {
       // Use elementFromPoint to grab the top-most element at these coordinates
       const target = document.elementFromPoint(x, y) as HTMLElement;
@@ -47,7 +49,7 @@ export default function CustomCursor() {
       }
     };
 
-    // 1. Mouse Move Handler
+    // Mouse Move Handler
     const moveCursor = (e: MouseEvent) => {
       mousePos.current = { x: e.clientX, y: e.clientY };
       mouseX.set(e.clientX);
@@ -55,7 +57,7 @@ export default function CustomCursor() {
       updateCursorVariant(e.clientX, e.clientY);
     };
 
-    // 2. Scroll Handler (Re-evaluates without the mouse moving)
+    // Scroll Handler (Re-evaluates without the mouse moving)
     const handleScroll = () => {
       updateCursorVariant(mousePos.current.x, mousePos.current.y);
     };
@@ -78,15 +80,15 @@ export default function CustomCursor() {
       mixBlendMode: "difference" as any,
     },
     clickable: {
-      width: 64,
-      height: 64,
+      width: 48,
+      height: 48,
       backgroundColor: "white",
       border: "0px solid white",
       mixBlendMode: "difference" as any,
     },
     image: {
-      width: 80,
-      height: 80,
+      width: 60,
+      height: 60,
       backgroundColor: "transparent",
       border: "2px solid rgba(255, 255, 255, 0.8)",
       mixBlendMode: "normal" as any,
@@ -95,7 +97,6 @@ export default function CustomCursor() {
 
   return (
     <>
-      {/* NEW: Global CSS injection to kill the default pointer everywhere */}
       <style>{`
         @media (pointer: fine) {
           body, *:not(input):not(textarea) {
@@ -105,7 +106,7 @@ export default function CustomCursor() {
       `}</style>
 
       <motion.div
-        className="fixed top-0 left-0 rounded-full pointer-events-none z-99999 hidden md:flex items-center justify-center"
+        className="fixed top-0 left-0 rounded-full pointer-events-none z-[99999] hidden md:flex items-center justify-center"
         style={{
           x: springX,
           y: springY,
@@ -114,11 +115,11 @@ export default function CustomCursor() {
         }}
         variants={variants}
         animate={variant}
+        // FIX 2: Change variant animation from a bouncy spring to a sturdy tween.
         transition={{
-          type: "spring",
-          stiffness: 300,
-          damping: 20,
-          mass: 0.5,
+          type: "tween",
+          ease: "easeOut",
+          duration: 0.15,
         }}
       />
     </>
