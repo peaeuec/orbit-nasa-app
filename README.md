@@ -20,11 +20,11 @@ Need: Node.js (v18 or higher) and npm installed on your local machine.
 1. Clone the repository:
    ```
    git clone [https://github.com/peaeuec/orbit-nasa-app.git](https://github.com/peaeuec/orbit-nasa-app.git)
-   cd orbit-nasa-app```
+   cd orbit-nasa-app
 3. Install dependencies:
-   ```npm install```
-4. Create a ```.env.local``` file in the root directory. Use the ```.env.example``` file as a reference
-5. Start the development server:
+   ```
+   npm install```
+5. Create a ```.env.local``` file in the root directory. Use the ```.env.example``` file as a reference
+6. Start the development server:
    ```
    npm run dev
-   ```
