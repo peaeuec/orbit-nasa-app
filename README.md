@@ -1,5 +1,6 @@
 Orbit is a web application designed for exploring NASA's media archives and tracking Near-Earth Objects (NEOs). It integrates real-time data from NASA's APIs with a modern and responsive user interface.
-[https://orbit-nasa.vercel.app](https://orbit-nasa.vercel.app)
+
+Live Demo: [https://orbit-nasa.vercel.app](https://orbit-nasa.vercel.app)
 
 APIs used:
 1. NASA NeoWs API (Near Earth Object Web Service)
