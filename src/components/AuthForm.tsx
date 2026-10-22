@@ -73,9 +73,20 @@ export default function AuthForm({
       <div className="relative z-10 hidden md:flex w-1/2 flex-col justify-between p-12 lg:p-20">
         <Link
           href="/"
-          className="text-3xl font-bold tracking-tightest bg-linear-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent w-fit cursor-none"
+          className="group flex items-center gap-3 cursor-none outline-none w-fit"
         >
-          ORBIT
+          <div className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-cyan-950/50 border border-cyan-500/40 group-hover:border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.2)] group-hover:shadow-[0_0_25px_rgba(6,182,212,0.4)] transition-all duration-300">
+            <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_10px_#22d3ee] animate-pulse" />
+            <div className="absolute inset-1 rounded-lg border border-cyan-400/30 rotate-45 group-hover:rotate-90 transition-transform duration-700 ease-out" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-2xl md:text-3xl font-black tracking-[0.2em] bg-gradient-to-r from-white via-cyan-100 to-cyan-400 bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(6,182,212,0.35)] leading-tight">
+              ORBIT
+            </span>
+            <span className="text-[8px] font-mono tracking-[0.35em] text-cyan-400/70 uppercase">
+              NASA Deep Space
+            </span>
+          </div>
         </Link>
 
         {/* The Rolling Staggered Heading Container */}

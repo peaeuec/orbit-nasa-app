@@ -28,7 +28,7 @@ export default function UserBadge({ user }: { user: User }) {
           />
         ) : (
           // If not, show the "Letter Avatar" with a gradient
-          <div className="w-full h-full bg-linear-to-br from-blue-600 to-purple-700 flex items-center justify-center text-white font-bold text-sm">
+          <div className="w-full h-full bg-gradient-to-br from-cyan-600 via-blue-600 to-indigo-900 flex items-center justify-center text-white font-bold text-sm">
             {initial}
           </div>
         )}
