@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toggleNativeFullscreen } from "@/utils/fullscreen";
+import { triggerFileDownload } from "@/utils/download";
 import CommentSection from "./CommentSection";
 
 interface PostModalProps {
@@ -39,6 +40,22 @@ export default function PostModal({
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [highResUrl, setHighResUrl] = useState<string | null>(null);
   const [loadingMedia, setLoadingMedia] = useState(true);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    const targetUrl = videoUrl || highResUrl || post.highResUrl || post.imageUrl;
+    if (!targetUrl) return;
+    setIsDownloading(true);
+    try {
+      const cleanTitle = (post.title || "nasa-space-asset")
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]/g, "_")
+        .replace(/_+/g, "_");
+      await triggerFileDownload(targetUrl, `${cleanTitle}_original`);
+    } finally {
+      setTimeout(() => setIsDownloading(false), 1200);
+    }
+  };
 
   const [isModalFullscreen, setIsModalFullscreen] = useState(false);
   const [isModalZoomed, setIsModalZoomed] = useState(false);
@@ -275,24 +292,26 @@ export default function PostModal({
               <span className="tracking-wider text-xs uppercase">Save</span>
             </motion.button>
 
-            <motion.a
+            <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.95 }}
-              href={videoUrl || highResUrl || post.highResUrl || post.imageUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              download
+              onClick={handleDownload}
+              disabled={isDownloading}
               className="group relative flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold transition-all duration-300 cursor-none overflow-hidden border border-cyan-500/30 bg-cyan-950/30 text-cyan-400 hover:text-cyan-300 hover:border-cyan-400/80 shadow-[0_0_15px_rgba(6,182,212,0.1)] hover:shadow-[0_0_25px_rgba(6,182,212,0.25)]"
             >
               <div className="absolute inset-0 bg-linear-to-r from-cyan-400/0 via-cyan-400/10 to-cyan-400/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out pointer-events-none" />
               <Download
                 size={18}
-                className="relative z-10 transition-transform duration-300 group-hover:-translate-y-1"
+                className={`relative z-10 transition-transform duration-300 ${
+                  isDownloading
+                    ? "animate-bounce text-cyan-300"
+                    : "group-hover:-translate-y-1"
+                }`}
               />
               <span className="relative z-10 tracking-wider text-xs uppercase">
-                Original
+                {isDownloading ? "Downloading..." : "Original"}
               </span>
-            </motion.a>
+            </motion.button>
           </div>
         </div>
       </div>

@@ -261,7 +261,7 @@ async function fetchScatteredLane(
 
   // If these are rover photos, prepend the robot emoji
   if (isRover) {
-    finalMix = finalMix.map((item) => ({ ...item, title: `🤖 ${item.title}` }));
+    finalMix = finalMix.map((item) => ({ ...item, title: `${item.title}` }));
   }
 
   // 5️⃣ Slice to the exact requested limit

@@ -9,10 +9,12 @@ import {
   ArrowRight,
   BookOpen,
   PlayCircle,
+  Download,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import StaggeredText from "@/components/StaggeredText";
 import { toggleNativeFullscreen } from "@/utils/fullscreen";
+import { triggerFileDownload } from "@/utils/download";
 import CommentSection from "./CommentSection"; // NEW: Imported the CommentSection
 
 /* ---------------- VIDEO URL HELPERS ---------------- */
@@ -195,6 +197,27 @@ export default function HeroSection({
   const [isZoomed, setIsZoomed] = useState(false);
   const [transformOrigin, setTransformOrigin] = useState("center center");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadApod = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const downloadTarget = hero.highResUrl || hero.imageUrl;
+    if (!downloadTarget) return;
+
+    setIsDownloading(true);
+    try {
+      const cleanTitle = (hero.title || "apod")
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]/g, "_")
+        .replace(/_+/g, "_");
+      await triggerFileDownload(
+        downloadTarget,
+        `apod_${hero.date || "daily"}_${cleanTitle}_highest_res`,
+      );
+    } finally {
+      setTimeout(() => setIsDownloading(false), 1200);
+    }
+  };
 
   const typedTitle = useTypewriter("Astronomy Picture of the Day");
   const dateStartDelay = 38 * "Astronomy Picture of the Day".length + 150;
@@ -412,14 +435,34 @@ export default function HeroSection({
             >
               {hero.description}
             </p>
-            <button className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition shadow-lg shadow-blue-900/20 group-hover:shadow-cyan-500/40 pointer-events-auto cursor-none">
-              <BookOpen size={16} />
-              <span>Read Full Story</span>
-              <ArrowRight
-                size={14}
-                className="group-hover:translate-x-1 transition-transform"
-              />
-            </button>
+            <div className="flex flex-wrap items-center gap-3 pointer-events-auto">
+              <button
+                onClick={() => setIsOpen(true)}
+                className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition shadow-lg shadow-blue-900/20 group-hover:shadow-cyan-500/40 cursor-none"
+              >
+                <BookOpen size={16} />
+                <span>Read Full Story</span>
+                <ArrowRight
+                  size={14}
+                  className="group-hover:translate-x-1 transition-transform"
+                />
+              </button>
+
+              <button
+                onClick={handleDownloadApod}
+                disabled={isDownloading}
+                title="Download original APOD in highest resolution possible"
+                className="flex items-center gap-2 bg-black/60 hover:bg-black/80 backdrop-blur-md border border-cyan-500/40 hover:border-cyan-400 text-cyan-400 hover:text-cyan-300 px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition shadow-lg shadow-black/40 hover:shadow-cyan-500/20 cursor-none"
+              >
+                <Download
+                  size={16}
+                  className={isDownloading ? "animate-bounce text-cyan-300" : ""}
+                />
+                <span>
+                  {isDownloading ? "Downloading..." : "Download HD"}
+                </span>
+              </button>
+            </div>
           </div>
         </motion.div>
       </div>
@@ -518,10 +561,26 @@ export default function HeroSection({
               className="md:w-1/3 p-8 flex flex-col bg-gray-900 border-l border-gray-800 overflow-y-auto"
               data-lenis-prevent
             >
-              <div className="mb-6">
+              <div className="mb-6 flex items-center justify-between gap-4">
                 <span className="bg-cyan-900/30 text-cyan-400 border border-cyan-900/50 text-xs font-bold px-3 py-1 rounded-full uppercase">
                   {hero.date}
                 </span>
+                <button
+                  onClick={handleDownloadApod}
+                  disabled={isDownloading}
+                  title="Download original APOD in highest resolution possible"
+                  className="flex items-center gap-2 text-xs font-bold tracking-wider uppercase px-4 py-2 rounded-xl border border-cyan-500/40 bg-cyan-950/40 hover:bg-cyan-900/50 text-cyan-400 hover:text-cyan-300 hover:border-cyan-400 transition shadow-[0_0_15px_rgba(6,182,212,0.15)] cursor-pointer"
+                >
+                  <Download
+                    size={15}
+                    className={
+                      isDownloading ? "animate-bounce text-cyan-300" : ""
+                    }
+                  />
+                  <span>
+                    {isDownloading ? "Downloading..." : "Download Original"}
+                  </span>
+                </button>
               </div>
               <h2 className="text-3xl font-bold mb-6 text-white leading-tight">
                 {hero.title}
