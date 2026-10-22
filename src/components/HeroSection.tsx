@@ -202,14 +202,14 @@ export default function HeroSection({
   // --- NEW: ADVANCED MEDIA DETECTION ---
   const isNativeVideo =
     hero?.mediaType === "video" &&
-    (hero.imageUrl.toLowerCase().endsWith(".mp4") ||
-      hero.imageUrl.toLowerCase().endsWith(".webm"));
+    (hero.imageUrl?.toLowerCase().endsWith(".mp4") ||
+      hero.imageUrl?.toLowerCase().endsWith(".webm"));
 
   const isEmbeddableVideo =
     hero?.mediaType === "video" &&
-    (hero.imageUrl.includes("youtube.com") ||
-      hero.imageUrl.includes("youtu.be") ||
-      hero.imageUrl.includes("vimeo.com"));
+    (hero.imageUrl?.includes("youtube.com") ||
+      hero.imageUrl?.includes("youtu.be") ||
+      hero.imageUrl?.includes("vimeo.com"));
 
   useEffect(() => {
     if (isOpen) {

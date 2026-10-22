@@ -3,15 +3,15 @@ import { SpacePost } from "./types";
 // 1. Clean APOD Data
 export function normalizeAPOD(data: any): SpacePost {
   return {
-    id: `apod-${data.date}`,
-    title: data.title,
-    description: data.explanation,
-    imageUrl: data.url, // For videos, this is the YouTube link
-    highResUrl: data.hdurl || data.url, // APOD natively provides an HD url!
-    date: data.date,
+    id: `apod-${data.date || new Date().toISOString().split("T")[0]}`,
+    title: data.title || "Astronomy Picture of the Day",
+    description: data.explanation || "No description available.",
+    imageUrl: data.url || "/placeholder.jpg",
+    highResUrl: data.hdurl || data.url || "/placeholder.jpg",
+    date: data.date || new Date().toISOString().split("T")[0],
     source: "APOD",
     likes: 0,
-    mediaType: data.media_type,
+    mediaType: data.media_type || "image",
   };
 }
 

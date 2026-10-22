@@ -11,6 +11,14 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "mars.nasa.gov", // Just in case we pull direct rover links
       },
+      {
+        protocol: "https",
+        hostname: "assets.science.nasa.gov",
+      },
+      {
+        protocol: "https",
+        hostname: "science.nasa.gov",
+      },
     ],
   },
 };

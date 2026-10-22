@@ -1,7 +1,74 @@
 import { normalizeAPOD, normalizeLibraryItem } from "./nasa-cleaners";
 import { SpacePost, Story } from "./types";
 
-const API_KEY = process.env.NEXT_PUBLIC_NASA_API_KEY;
+const API_KEY = process.env.NEXT_PUBLIC_NASA_API_KEY || "DEMO_KEY";
+
+// Helper to recover real APOD data if NASA's API returns the generic theme logo ("NASA Science" / "nasa-logo@2x.png")
+async function fetchScienceNasaApodFallback(): Promise<{
+  imageUrl?: string;
+  highResUrl?: string;
+  title?: string;
+} | null> {
+  try {
+    const pageRes = await fetch("https://science.nasa.gov/apod/", {
+      next: { revalidate: 3600 },
+    });
+    if (!pageRes.ok) return null;
+    const html = await pageRes.text();
+
+    const imgMatch =
+      html.match(
+        /<img[^>]+src=["'](https:\/\/assets\.science\.nasa\.gov\/dynamicimage\/assets\/science\/cds\/apod\/apod\/[^"']+)["']/i
+      ) ||
+      html.match(
+        /<img[^>]+src=["'](https:\/\/assets\.science\.nasa\.gov\/[^"']+\.(?:jpg|jpeg|png|webp)[^"']*)["']/i
+      );
+
+    const articleLinkMatch = html.match(
+      /href=["'](https:\/\/science\.nasa\.gov\/image-article\/apod-[^"']+)["']/i
+    );
+
+    let title: string | undefined = undefined;
+
+    if (articleLinkMatch) {
+      try {
+        const articleRes = await fetch(articleLinkMatch[1], {
+          next: { revalidate: 3600 },
+        });
+        if (articleRes.ok) {
+          const articleHtml = await articleRes.text();
+          const h1Match = articleHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+          if (h1Match) {
+            title = h1Match[1].replace(/<[^>]+>/g, "").trim();
+          }
+        }
+      } catch {
+        const slug = articleLinkMatch[1].split("/").filter(Boolean).pop() || "";
+        const titlePart = slug.replace(/^apod-\d{4}-[a-z]+-\d{1,2}-/i, "");
+        if (titlePart) {
+          title = titlePart
+            .split("-")
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(" ");
+        }
+      }
+    }
+
+    if (imgMatch) {
+      const rawUrl = imgMatch[1].replace(/&amp;/g, "&");
+      const highResUrl = rawUrl.split("?")[0];
+      return {
+        imageUrl: rawUrl,
+        highResUrl: highResUrl,
+        title: title || undefined,
+      };
+    }
+    return null;
+  } catch (err) {
+    console.error("Failed to recover APOD from science.nasa.gov:", err);
+    return null;
+  }
+}
 
 // --- Helper: Shuffle Array ---
 function shuffleArray<T>(array: T[]): T[] {
@@ -50,12 +117,61 @@ export async function getPopularFeed(): Promise<SpacePost[]> {
 
 // 3. Essential Helpers
 export async function getHeroPost(): Promise<SpacePost> {
-  const res = await fetch(
-    `https://api.nasa.gov/planetary/apod?api_key=${API_KEY}`,
-    { next: { revalidate: 3600 } }, // FIX: Cache APOD since it only changes once a day!
-  );
-  if (!res.ok) throw new Error("Failed to fetch APOD");
-  return normalizeAPOD(await res.json());
+  let apodData: any = null;
+
+  try {
+    const res = await fetch(
+      `https://api.nasa.gov/planetary/apod?api_key=${API_KEY}`,
+      { next: { revalidate: 3600 } }, // FIX: Cache APOD since it only changes once a day!
+    );
+    if (res.ok) {
+      apodData = await res.json();
+    }
+  } catch (err) {
+    console.error("NASA APOD API request error:", err);
+  }
+
+  // Detect if NASA API returned the broken generic WordPress theme logo or failed
+  const isBrokenLogo =
+    apodData?.title === "NASA Science" ||
+    apodData?.url?.includes("nasa-logo") ||
+    !apodData?.url;
+
+  if (isBrokenLogo || !apodData) {
+    const fallback = await fetchScienceNasaApodFallback();
+    if (fallback?.imageUrl) {
+      if (apodData) {
+        apodData.url = fallback.imageUrl;
+        apodData.hdurl = fallback.highResUrl || fallback.imageUrl;
+        if (fallback.title) apodData.title = fallback.title;
+      } else {
+        apodData = {
+          date: new Date().toISOString().split("T")[0],
+          title: fallback.title || "Astronomy Picture of the Day",
+          explanation:
+            "Each day a different image or photograph of our fascinating universe is featured, along with a brief explanation written by a professional astronomer.",
+          url: fallback.imageUrl,
+          hdurl: fallback.highResUrl || fallback.imageUrl,
+          media_type: "image",
+        };
+      }
+    }
+  }
+
+  // Guaranteed fallback so the site never crashes even if both NASA endpoints fail
+  if (!apodData || !apodData.url) {
+    apodData = {
+      date: new Date().toISOString().split("T")[0],
+      title: "Cosmic Cliffs of the Carina Nebula",
+      explanation:
+        "This landscape of 'mountains' and 'valleys' speckled with glittering stars is actually the edge of a nearby, young, star-forming region called NGC 3324 in the Carina Nebula. Captured in infrared light by NASA's James Webb Space Telescope, this image reveals for the first time previously invisible areas of star birth.",
+      url: "https://images-assets.nasa.gov/image/PIA25328/PIA25328~orig.jpg",
+      hdurl: "https://images-assets.nasa.gov/image/PIA25328/PIA25328~orig.jpg",
+      media_type: "image",
+    };
+  }
+
+  return normalizeAPOD(apodData);
 }
 
 export async function getPostById(nasaId: string): Promise<SpacePost | null> {
