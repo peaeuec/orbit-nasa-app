@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import OrbitLogo from "./OrbitLogo";
 
 interface Star {
   id: number;
@@ -19,11 +20,11 @@ export default function SplashScreen() {
   const [statusMessage, setStatusMessage] = useState("INITIALIZING ORBITAL TELEMETRY");
   const [stars, setStars] = useState<Star[]>([]);
 
-  // Ref to hold the current true target progress based on real browser events
-  const targetProgressRef = useRef(10);
+  // Ref tracking real target progress from browser telemetry
+  const targetProgressRef = useRef(15);
 
   useEffect(() => {
-    // 1. Generate client-side starfield
+    // 1. Generate ambient client-side starfield
     const generatedStars = Array.from({ length: 45 }).map((_, i) => ({
       id: i,
       x: Math.random() * 100,
@@ -34,7 +35,7 @@ export default function SplashScreen() {
     }));
     setStars(generatedStars);
 
-    // 2. Session check (allow fast return)
+    // 2. Session check (allow smooth fast return for repeat visits)
     const hasVisited = sessionStorage.getItem("hasVisitedOrbit");
     if (hasVisited) {
       setIsLoading(false);
@@ -45,36 +46,34 @@ export default function SplashScreen() {
 
     let isMounted = true;
 
-    // 3. ACTUAL LOADING TELEMETRY PIPELINE
-    // Baseline: React mounted & script parsed
-    targetProgressRef.current = 20;
+    // 3. REAL BROWSER TELEMETRY PIPELINE
+    targetProgressRef.current = 25;
 
-    // Milestone A: Document Fonts loaded
+    // Milestone A: Fonts & Design System ready
     if (typeof document !== "undefined" && "fonts" in document) {
       document.fonts.ready
         .then(() => {
           if (!isMounted) return;
-          targetProgressRef.current = Math.max(targetProgressRef.current, 45);
-          setStatusMessage("TYPOGRAPHY & ASSETS SYNCHRONIZED");
+          targetProgressRef.current = Math.max(targetProgressRef.current, 50);
+          setStatusMessage("TYPOGRAPHY & DESIGN TOKENS READY");
         })
         .catch(() => {});
     }
 
-    // Milestone B: DOM Content & Subresources
+    // Milestone B: Resource streaming progress
     const updateFromResources = () => {
       if (!isMounted) return;
       if (typeof window !== "undefined" && window.performance) {
         const resources = performance.getEntriesByType("resource");
         if (resources.length > 0) {
-          // As browser downloads scripts, CSS, and images, advance realistically
-          const resourceProgress = Math.min(85, 45 + Math.round(resources.length * 2.5));
+          const resourceProgress = Math.min(88, 50 + Math.round(resources.length * 2));
           targetProgressRef.current = Math.max(targetProgressRef.current, resourceProgress);
           setStatusMessage("CALIBRATING DEEP SPACE SENSORS");
         }
       }
     };
 
-    const resourceInterval = setInterval(updateFromResources, 120);
+    const resourceInterval = setInterval(updateFromResources, 100);
 
     // Milestone C: Full Window and Media Load
     const markComplete = () => {
@@ -88,8 +87,7 @@ export default function SplashScreen() {
       markComplete();
     } else {
       window.addEventListener("load", markComplete, { once: true });
-      // In case window.load takes unexpectedly long, safety cap at 2.8s
-      const timeoutFallback = setTimeout(markComplete, 2800);
+      const timeoutFallback = setTimeout(markComplete, 2400);
       return () => {
         isMounted = false;
         clearInterval(resourceInterval);
@@ -104,27 +102,23 @@ export default function SplashScreen() {
     };
   }, []);
 
-  // 4. Smooth fluid interpolation towards actual targetProgress
+  // 4. Smooth fluid interpolation loop
   useEffect(() => {
     let animId: number;
 
     const animateProgress = () => {
       setDisplayProgress((prev) => {
         const target = targetProgressRef.current;
-        if (prev >= 100) {
-          return 100;
-        }
+        if (prev >= 100) return 100;
 
-        // Smooth physics-based interpolation
         const delta = target - prev;
-        const step = Math.max(0.6, delta * 0.12);
+        const step = Math.max(0.8, delta * 0.14);
         const next = Math.min(target, prev + step);
 
         if (next >= 100) {
-          // When 100% is reached, linger briefly so user sees nominal completion
           setTimeout(() => {
             setIsLoading(false);
-            setTimeout(() => setShouldRender(false), 900);
+            setTimeout(() => setShouldRender(false), 800);
           }, 350);
           return 100;
         }
@@ -146,11 +140,11 @@ export default function SplashScreen() {
       {isLoading && (
         <motion.div
           key="splash"
-          exit={{ opacity: 0, scale: 1.05, filter: "blur(12px)" }}
-          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+          exit={{ opacity: 0, scale: 1.04, filter: "blur(10px)" }}
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
           className="fixed inset-0 z-9999 bg-[#04060b] overflow-hidden flex flex-col items-center justify-center p-4 select-none pointer-events-auto"
         >
-          {/* --- AMBIENT STARFIELD BACKGROUND --- */}
+          {/* Ambient Starfield */}
           <div className="absolute inset-0 opacity-40 pointer-events-none">
             {stars.map((star) => (
               <motion.div
@@ -176,25 +170,25 @@ export default function SplashScreen() {
             ))}
           </div>
 
-          {/* Deep Space Radial Nebula Glow */}
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(6,182,212,0.12),transparent_70%)] pointer-events-none" />
+          {/* Deep Space Nebula Glow */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(6,182,212,0.1),transparent_70%)] pointer-events-none" />
 
-          {/* --- AEROSPACE TELEMETRY CARD --- */}
+          {/* Aerospace HUD Telemetry Card */}
           <motion.div
-            initial={{ scale: 0.94, opacity: 0, y: 15 }}
+            initial={{ scale: 0.95, opacity: 0, y: 12 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="relative z-10 w-full max-w-md p-8 md:p-10 rounded-3xl bg-neutral-950/85 backdrop-blur-2xl border border-cyan-500/25 shadow-[0_0_60px_rgba(0,0,0,0.9),0_0_35px_rgba(6,182,212,0.15)] overflow-hidden"
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            className="relative z-10 w-full max-w-md p-8 md:p-10 rounded-3xl bg-neutral-950/85 backdrop-blur-2xl border border-cyan-500/20 shadow-[0_0_60px_rgba(0,0,0,0.9),0_0_30px_rgba(6,182,212,0.12)] overflow-hidden"
           >
-            {/* Sci-Fi Corner Brackets */}
-            <div className="absolute top-3 left-3 w-3 h-3 border-t-2 border-l-2 border-cyan-400/70" />
-            <div className="absolute top-3 right-3 w-3 h-3 border-t-2 border-r-2 border-cyan-400/70" />
-            <div className="absolute bottom-3 left-3 w-3 h-3 border-b-2 border-l-2 border-cyan-400/70" />
-            <div className="absolute bottom-3 right-3 w-3 h-3 border-b-2 border-r-2 border-cyan-400/70" />
+            {/* Sci-Fi Corner Accents */}
+            <div className="absolute top-3 left-3 w-3 h-3 border-t-2 border-l-2 border-cyan-400/60" />
+            <div className="absolute top-3 right-3 w-3 h-3 border-t-2 border-r-2 border-cyan-400/60" />
+            <div className="absolute bottom-3 left-3 w-3 h-3 border-b-2 border-l-2 border-cyan-400/60" />
+            <div className="absolute bottom-3 right-3 w-3 h-3 border-b-2 border-r-2 border-cyan-400/60" />
 
             {/* HUD Status Header */}
             <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-800/80">
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
@@ -208,22 +202,12 @@ export default function SplashScreen() {
               </span>
             </div>
 
-            {/* --- REFINED ORBIT LOGO --- */}
-            <div className="flex flex-col items-center mb-8">
-              <div className="relative flex items-center justify-center w-14 h-14 mb-4 rounded-2xl bg-cyan-950/40 border border-cyan-500/40 shadow-[0_0_25px_rgba(6,182,212,0.3)]">
-                <div className="w-3.5 h-3.5 rounded-full bg-cyan-400 shadow-[0_0_12px_#22d3ee] animate-pulse" />
-                <div className="absolute inset-1 rounded-xl border border-cyan-400/30 rotate-45" />
-              </div>
-
-              <h1 className="text-4xl md:text-5xl font-black tracking-[0.25em] text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-cyan-400 drop-shadow-[0_0_20px_rgba(6,182,212,0.4)]">
-                ORBIT
-              </h1>
-              <span className="text-[10px] font-mono tracking-[0.35em] text-cyan-400/70 mt-1 uppercase">
-                NASA Deep Space Archives
-              </span>
+            {/* --- REFINED ORBIT LOGO (NO GRADIENT, CLEAN GEIST SANS, NO SUBTEXT) --- */}
+            <div className="flex flex-col items-center justify-center mb-8">
+              <OrbitLogo size="lg" />
             </div>
 
-            {/* --- REAL-TIME TELEMETRY PROGRESS BAR --- */}
+            {/* Real-Time Telemetry Progress Bar */}
             <div className="w-full flex flex-col gap-3">
               <div className="flex justify-between items-center px-1 font-mono">
                 <span className="text-cyan-400/80 text-[11px] tracking-wider uppercase truncate mr-2">
