@@ -36,7 +36,7 @@ export default function Loading() {
 
         <div className="mt-4 flex items-center gap-2 text-[10px] font-mono text-gray-400 tracking-wider">
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
-          <span>QUERYING NASA SATELLITE NETWORK...</span>
+          <span>Contacting NASA Satellite...</span>
         </div>
       </div>
     </div>
